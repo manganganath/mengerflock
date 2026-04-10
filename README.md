@@ -121,3 +121,36 @@ algoforge/
 - Used only when module composition fails due to tight coupling
 - Researchers fork the full codebase and evolve holistically
 
+## What Can AlgoForge Evolve?
+
+AlgoForge is a general-purpose system for evolving any algorithm that can be benchmarked numerically. The key requirements are: you have code, a build step, and a measurable metric.
+
+**Combinatorial Optimization**
+- TSP heuristics (the first test case — beating LKH-2)
+- Vehicle routing (CVRP, VRPTW)
+- Graph coloring, bin packing, scheduling
+- Any problem with known benchmark instances and optimal/best-known solutions
+
+**Search & Solver Algorithms**
+- SAT solvers
+- Constraint satisfaction solvers
+- Branch-and-bound implementations
+- Local search / metaheuristic frameworks
+
+**Numerical & Scientific Computing**
+- Matrix multiplication kernels
+- Sorting algorithms for specific data distributions
+- Compression algorithms
+- Signal processing routines
+
+**ML Training Code**
+- Neural network training loops
+- Optimizer implementations
+- Data augmentation strategies
+
+**Compiler / Code Generation**
+- Optimization passes
+- Code generation heuristics
+- Register allocation strategies
+
+The common thread: any codebase where you can compile, run against benchmarks, and get a number back — AlgoForge can try to improve that number by evolving the code. The domain-agnostic design (strategist does web research, prompts are generic) means it doesn't need to be pre-configured for any specific problem type.
