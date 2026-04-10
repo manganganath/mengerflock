@@ -191,7 +191,12 @@ class Orchestrator:
 
         self.launch_strategist()
 
-        for i in range(self.config.agents.researchers.count):
+        # Default: one researcher per module. User can override with count in config.
+        count = self.config.agents.researchers.count
+        if count is None:
+            count = len(self.config.modules)
+
+        for i in range(count):
             rid = f"r{i + 1}"
             module = self.config.modules[i % len(self.config.modules)]
             self.launch_researcher(rid, module.name)

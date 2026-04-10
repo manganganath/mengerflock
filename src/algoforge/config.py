@@ -67,7 +67,7 @@ class StrategistConfig:
 
 @dataclasses.dataclass
 class ResearcherConfig:
-    count: int
+    count: Optional[int] = None  # None = strategist decides (default: one per module)
     model_flags: str = ""
     max_iterations_per_assignment: int = 20
 
@@ -178,8 +178,8 @@ def load_config(path: str | Path) -> AlgoForgeConfig:
     agents_raw = _require(raw, "agents")
     strat_raw = _require(agents_raw, "strategist", "agents")
     res_raw = _require(agents_raw, "researchers", "agents")
-    count = _require(res_raw, "count", "agents.researchers")
-    if count < 1:
+    count = res_raw.get("count")  # None = strategist decides based on modules
+    if count is not None and count < 1:
         raise ConfigError("agents.researchers.count must be >= 1")
 
     # Wildcard (optional)

@@ -46,6 +46,15 @@ def test_researcher_count_must_be_positive(tmp_project):
         load_config(config_path)
 
 
+def test_researcher_count_defaults_to_none(tmp_project):
+    tmp_path, config_path = tmp_project
+    raw = yaml.safe_load(config_path.read_text())
+    del raw["agents"]["researchers"]["count"]
+    config_path.write_text(yaml.dump(raw))
+    config = load_config(config_path)
+    assert config.agents.researchers.count is None
+
+
 def test_seed_path_optional_in_evolve(tmp_project):
     tmp_path, config_path = tmp_project
     raw = yaml.safe_load(config_path.read_text())
