@@ -63,11 +63,14 @@ LOOP FOREVER:
    - A researcher reports a new `keep` in results.tsv
    - 10 minutes pass with no composition
    - You're about to reassign a researcher
+   - **A composition was just rejected — immediately try the next module**
 
-   To compose — **incrementally, one module at a time**:
+   To compose — **incrementally, one module at a time, best first**:
+   - **Order modules by keep/discard ratio.** A module with 1 keep and 0 discards is a better composition candidate than one with 1 keep and 5 discards. Compose the strongest signal first.
    - Start from main
    - Merge module branches one at a time: merge module A → build → evaluate. Then merge module B → build → evaluate. And so on.
-   - If adding a module regresses the composition, try that module alone (without the others) to understand if it conflicts. Some improvements conflict — e.g., one module speeds up trials while another adds preprocessing that cancels the speedup. Log the conflict.
+   - If adding a module regresses the composition, skip it and try the next. Don't stop composing after one rejection — try ALL modules with keeps.
+   - Some improvements conflict — e.g., one module speeds up trials while another adds preprocessing that cancels the speedup. Log the conflict.
    - Keep the best combination. Not all modules need to be in the final composition.
    - If merge conflicts: resolve them yourself. Only if you truly cannot resolve, switch that researcher to cross-pollination mode.
    - If better than main: `git checkout main && git merge composition/<id> --ff-only` and tag it
