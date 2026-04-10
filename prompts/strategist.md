@@ -82,9 +82,18 @@ LOOP FOREVER:
 
    **Redirect away from dead ends**: If a researcher's keeps get rejected at composition (e.g., "too expensive for large instances"), update their assignment with this constraint. Don't let them keep exploring variations of a rejected approach.
 
-   **Cross-pollinate ideas**: If r1 finds that speed matters more than move quality, tell r2 and r3 to also consider speed in their modules. Successful insights from one researcher should influence the others' directions.
+   **Cross-pollinate ALL findings**: Every time a researcher logs a `keep`, ask: does this insight apply to other modules? Update other researchers' assignments with:
+   - What was found and why it worked
+   - How it might apply to their module
+   - Specific follow-up ideas
 
-   **Incorporate wildcard discoveries**: When the wildcard (w1) logs a `keep`, pay special attention — it found something without any guidance. Read its hypothesis and description carefully. If it discovered an improvement area that regular researchers aren't covering (e.g., configuration parameters, unused code paths, architectural changes), immediately update the most relevant researcher's assignment with: what the wildcard found, why it worked, and specific follow-up ideas to explore it further within that researcher's module.
+   Examples:
+   - r1 finds early termination speeds up trials → tell r2 and r3 to also look for ways to reduce per-trial cost in their modules
+   - r2 discovers warm-start Pi preservation helps → tell r1 that candidate quality improved, which may change which move operator optimizations matter
+   - r3 finds perturbation changes help large instances → tell r1 and r2 to focus their evaluation on large instances too
+   - w1 (wildcard) enables unused patching parameters → tell r3 to explore patching further within the perturbation module
+
+   **Wildcard keeps deserve extra attention** — the wildcard found something without any guidance, which means it's likely an area nobody else is covering.
 
    **Stagnation escalation**: If a researcher has 3+ consecutive crashes or discards:
    - First: reframe the objective (e.g., from "improve solution quality" to "reduce per-trial wall-clock time so more trials fit in the time budget")
