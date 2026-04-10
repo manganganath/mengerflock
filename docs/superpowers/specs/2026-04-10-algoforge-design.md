@@ -2,34 +2,90 @@
 
 ## Overview
 
-AlgoForge is a hierarchical multi-agent system for automated algorithm discovery and evolution. It orchestrates a strategist agent and configurable parallel researcher agents to evolve codebases toward better performance on defined benchmarks.
+AlgoForge is a hierarchical multi-agent system for automated algorithm discovery and evolution. It uses existing coding agents (Claude Code, Codex, etc.) as the intelligence layer and provides a thin orchestration layer to coordinate them.
 
 The framework is target-agnostic — it works with any codebase in any language. The first test case is evolving a TSP heuristic in C that beats LKH-2 on pure symmetric TSP.
 
+### Core Insight
+
+Coding agents (Claude Code, Codex, Cursor) already know how to read files, edit code, run commands, handle errors, use git, and search the web. AlgoForge does not rebuild these capabilities. Instead, it launches multiple coding agent sessions, each pointed at a markdown instruction file, and coordinates them — exactly like AutoResearch, but with a hierarchy and parallelism.
+
 ### Three Components
 
-1. **AlgoForge Framework (Python)** — the core product. A hierarchical multi-agent system with CLI interface.
+1. **AlgoForge Framework (Python)** — a thin orchestrator that launches and manages coding agent sessions. This is the product.
 2. **TSP Test Case (C)** — first application. Evolve a heuristic that beats LKH-2 on TSPLIB benchmarks.
 3. **LKH-2 Baseline (C)** — original LKH-2 compiled and benchmarked as ground truth.
 
 ---
 
-## Agent Architecture
+## Architecture
 
-Two agent types. No more.
+```
+┌─────────────────────────────────────────────────┐
+│                 orchestrator.py                   │
+│  Launches sessions, manages worktrees,           │
+│  passes messages, tracks results.tsv,            │
+│  enforces stopping conditions                    │
+├─────────────────────────────────────────────────┤
+│  Strategist Session (1)  │  Researcher Sessions (N)  │
+│  Coding agent pointed at │  Coding agents pointed at  │
+│  strategist.md           │  researcher.md             │
+│  Works in main worktree  │  Each in own git worktree  │
+└─────────────────────────────────────────────────┘
+```
 
-### Strategist (1 instance)
+### What the orchestrator does (Python)
 
-The research PI. Has **web search capability** to research unfamiliar domains autonomously — read papers, find known weaknesses in target algorithms, look up benchmark baselines, and discover alternative approaches. This makes the system domain-agnostic without requiring user-provided domain knowledge.
+- Launches coding agent sessions (one strategist, N researchers)
+- Creates and manages git worktrees (one per researcher)
+- Reads `state/results.tsv` to track progress and check stopping conditions
+- Sends messages between sessions (strategist assignments → researchers)
+- Enforces timeouts and stopping conditions
+- Handles graceful shutdown (SIGINT/SIGTERM)
+
+### What the orchestrator does NOT do
+
+- Make LLM API calls (the coding agent does this)
+- Edit source files (the coding agent does this)
+- Parse or understand code (the coding agent does this)
+- Run builds or benchmarks (the coding agent does this via bash)
+- Handle build errors (the coding agent does this)
+- Search the web (the coding agent does this)
+
+### What ships with AlgoForge
+
+```
+algoforge/
+├── orchestrator.py        # launches and manages agent sessions
+├── cli.py                 # CLI entry point
+├── config.py              # config loading and validation
+├── eval.sh                # benchmark runner script (deterministic, no LLM)
+├── prompts/
+│   ├── strategist.md      # instructions for the strategist session
+│   └── researcher.md      # instructions for each researcher session
+└── config.yaml            # project configuration template
+```
+
+The prompts are the AlgoForge equivalent of AutoResearch's `program.md`. They define the agent's behavior. The orchestrator is the only real infrastructure code.
+
+---
+
+## Agent Types
+
+Two types. Both are coding agent sessions pointed at different instruction files.
+
+### Strategist (1 session)
+
+A coding agent session (e.g., Claude Code) pointed at `strategist.md`. The strategist has full access to the coding agent's native capabilities: file read/edit, bash, git, and web search.
 
 Responsibilities:
 
 - **Research** — web search to understand the target algorithm, its domain, known limitations, and competing approaches. Can also discover and download seed code if not provided.
 - **Initialize** — analyze seed codebase, decompose into modules, run baseline benchmarks
-- **Assign** — assign modules to researchers based on priority scores
-- **Compose** — periodically merge best module branches, evaluate the combined build
+- **Assign** — write assignment files that researchers pick up
+- **Compose** — merge best module branches, evaluate the combined build
 - **Reprioritize** — shift researcher assignments based on evidence
-- **Resolve conflicts** — handle git merge conflicts during composition. Only if resolution fails, fall back to cross-pollination mode
+- **Resolve conflicts** — handle git merge conflicts during composition. Only if resolution fails, fall back to cross-pollination mode.
 - **Report** — at experiment end, document everything: what was tried, what worked, why, final algorithm, benchmark comparison
 
 Priority scoring per module is based on:
@@ -43,26 +99,26 @@ Reassignment triggers:
 - New composition reveals a new bottleneck
 - Breakthrough in one module opens opportunities in another
 
-### Researcher (N configurable instances)
+### Researcher (N configurable sessions)
 
-The worker. Each researcher runs a tight inner loop on its assigned module:
+Each researcher is a separate coding agent session pointed at `researcher.md`, running in its own git worktree. The coding agent natively handles file editing, build errors, git operations — the researcher prompt just tells it *what* to do.
 
-1. **Receive** assignment from strategist (module, files, objective, context from past experiments)
-2. **Analyze** the module code
-3. **Hypothesize** an improvement (with reasoning)
-4. **Implement** the change (edit C source files)
-5. **Commit** (`git commit` on the module branch)
-6. **Build** (compile full codebase — if it fails, read errors and fix, up to 3 retries)
-7. **Evaluate** (run against benchmark instances, collect tour lengths)
-8. **Compare** to current best:
-   - Better → keep the commit, update module best
-   - Worse → `git reset`, log to results.tsv
-9. **Log** the experiment (structured TSV entry)
-10. **Repeat** from step 3 until max_iterations or strategist reassigns
+The researcher loop (defined in `researcher.md`):
 
-Evaluation is progressive: start with small TSPLIB instances (50-500 cities) for fast feedback. Promote to larger instances only if small ones improve.
+1. Read the assignment file (`state/assignments/r<id>.yaml`)
+2. Read the module source code
+3. Read recent experiment history from `state/results.tsv`
+4. Hypothesize an improvement
+5. Edit the code
+6. `git commit`
+7. Build: run `make` — if it fails, read errors and fix (up to 3 retries)
+8. Evaluate: run `eval.sh` — collect metrics
+9. Compare to current best:
+   - Better → keep the commit, append `keep` to results.tsv
+   - Worse → `git reset --hard HEAD~1`, append `discard` to results.tsv
+10. Repeat from step 3 until assignment file changes or max_iterations reached
 
-Build failures count as iterations. The researcher maintains a local experiment history to avoid repeating failed ideas. The researcher can be interrupted mid-loop by the strategist.
+The researcher prompt includes the NEVER STOP instruction (like AutoResearch): loop indefinitely until interrupted.
 
 ---
 
@@ -72,17 +128,17 @@ Build failures count as iterations. The researcher maintains a local experiment 
 
 Seed code exists or is discovered. The strategist decomposes it into modules and researchers improve them. Used for the TSP/LKH-2 test case.
 
-If `seed_path` is not provided in the config, the strategist uses web search to find the best available open-source implementation for the problem domain, downloads it, and uses it as the seed. For example, given a TSP project with no seed, the strategist would find LKH-2's source code, download it, verify it compiles, and proceed.
+If `seed_path` is not provided in the config, the strategist uses web search to find the best available open-source implementation for the problem domain, downloads it, and uses it as the seed.
 
 ### Generate Mode
 
 No seed code. The strategist defines the problem specification and module interfaces from the config. Researchers generate implementations from scratch, guided by the strategist's domain knowledge.
 
 In generate mode:
-- The strategist creates empty module files with interface stubs (function signatures, expected inputs/outputs)
+- The strategist creates module files with interface stubs (function signatures, expected inputs/outputs)
 - Researchers implement the module internals from scratch
 - The first few iterations focus on producing code that compiles and produces valid output (correctness before optimization)
-- Once a working baseline exists, the normal evolve loop takes over (improve the metric)
+- Once a working baseline exists, the normal evolve loop takes over
 
 The config must provide:
 - `problem_spec`: description of the problem and expected I/O format
@@ -128,14 +184,14 @@ Git manages code versioning. Shared state files live outside git.
 
 ### Git Worktrees for Concurrency
 
-Each researcher operates in its own `git worktree`. This is required because multiple researchers cannot share a single working directory — `git checkout` on one branch would clobber another researcher's files.
+Each researcher session operates in its own `git worktree`. This is required because multiple sessions cannot share a single working directory.
 
 On initialization:
-- The strategist creates one worktree per researcher: `git worktree add .worktrees/r<id> module/<name>`
-- Each researcher works exclusively in its worktree
-- The strategist operates in the main working directory
+- The orchestrator creates one worktree per researcher: `git worktree add .worktrees/r<id> module/<name>`
+- Each researcher session works exclusively in its worktree
+- The strategist session operates in the main working directory
 
-Worktrees are created/destroyed as researchers are assigned/reassigned. They are lightweight (shared `.git` objects) but provide full filesystem isolation.
+Worktrees are created/destroyed by the orchestrator as researchers are assigned/reassigned.
 
 ### Project Directory
 
@@ -143,9 +199,17 @@ Worktrees are created/destroyed as researchers are assigned/reassigned. They are
 project/
 ├── config.yaml              # project configuration
 ├── seed/                    # original code (read-only, tagged in git)
+├── eval.sh                  # benchmark runner script
 ├── state/                   # shared state (outside git)
 │   ├── results.tsv          # single flat experiment log (append-only)
-│   └── strategist_log.tsv   # strategist decisions
+│   ├── strategist_log.tsv   # strategist decisions
+│   └── assignments/         # current assignments per researcher
+│       ├── r1.yaml
+│       ├── r2.yaml
+│       └── ...
+├── prompts/                 # agent instruction files
+│   ├── strategist.md
+│   └── researcher.md
 ├── benchmarks/              # benchmark instances (e.g., TSPLIB .tsp files)
 └── .worktrees/              # git worktrees (one per researcher)
     ├── r1/
@@ -153,7 +217,21 @@ project/
     └── ...
 ```
 
-`state/` lives outside git so all agents can read/write it regardless of branch. File-level locking (e.g., `fcntl.flock`) prevents concurrent append corruption.
+### Communication via Filesystem
+
+Agents communicate through the shared `state/` directory — no queues, no IPC, no custom protocol.
+
+**Strategist → Researcher:**
+- Writes `state/assignments/r<id>.yaml` with module name, files, objective, constraints, and context
+- The researcher polls this file for changes
+
+**Researcher → Strategist:**
+- Appends to `state/results.tsv` (with file locking via `fcntl.flock`)
+- The strategist polls this file to monitor progress
+
+**Orchestrator → All:**
+- Writes `state/shutdown` flag file to signal graceful stop
+- All sessions check for this file periodically
 
 ### results.tsv Format
 
@@ -187,63 +265,6 @@ timestamp	action	details
 - Build and evaluate against benchmarks
 - If better than `main` → fast-forward `main`
 - Tag milestone compositions
-
----
-
-## LLM Interaction Protocol
-
-### Researcher Prompt Structure
-
-Each researcher iteration sends the following context to the model:
-
-1. **System prompt** — role description, constraints (only edit assigned files, must compile, etc.)
-2. **Module source** — full content of the assigned files. For large files, the strategist may provide a summarized version with key sections highlighted.
-3. **Assignment** — objective text from the strategist, specific areas to explore
-4. **Recent experiment history** — last 10-20 entries from results.tsv for this module (not the full history). Includes hypothesis, result, and keep/discard status so the model avoids repeating failures.
-5. **Build/eval feedback** — on retry iterations: compiler errors or benchmark output from the previous attempt
-
-The model responds with:
-- Hypothesis (one sentence)
-- Code edits as **search/replace blocks** (file path, old text, new text). This format is more reliable than unified diffs for LLM-generated edits. For small files (<200 lines), the model may return the full file content instead.
-- Reasoning (why this should improve the metric)
-
-The framework applies edits by: (1) validating the old text exists in the file, (2) replacing with new text, (3) if the old text is not found (LLM hallucination), asking the model to retry with the actual file content. Full file rewrites are applied directly.
-
-### Strategist Prompt Structure
-
-1. **System prompt** — role as research PI, responsibilities, decision framework
-2. **Domain research** — findings from web search during initialization (papers, known weaknesses, competing approaches). Cached and reused across calls.
-3. **Codebase summary** — module list with file sizes, key functions, and inter-module dependencies (not full source)
-4. **Full results.tsv** — complete experiment history across all researchers
-5. **Current state** — which researcher is on which module, iteration counts, latest composition result
-6. **Decision request** — "compose now?", "reassign researchers?", "switch to cross-pollination?"
-
-### Strategist Tools
-
-The strategist has access to:
-- **Web search + download** — search the web for papers, techniques, benchmark results, domain knowledge, and seed code
-- **File read** — read source files in the repository
-- **Git operations** — branch, merge, tag (via git_ops.py)
-- **Eval trigger** — kick off a composition build + benchmark run
-
-### Context Management
-
-- **Token budget**: each researcher call should stay under 50% of the model's context window, leaving room for the response. For Gemini Flash (1M context), this is generous. For smaller models, the strategist provides summarized module source instead of full files.
-- **History pruning**: only the last N experiments per module are included in researcher prompts. The strategist sees the full history.
-- **Large files**: if a module file exceeds 1000 lines, the strategist provides an annotated summary (key functions, data structures, hot paths) alongside the full source. The researcher can request specific line ranges.
-
-### Assignment Data Structure
-
-```python
-@dataclass
-class Assignment:
-    module_name: str
-    files: list[str]              # paths relative to repo root
-    objective: str                # what to improve and why
-    constraints: list[str]        # e.g., "do not change function signatures in LKH.h"
-    context: str                  # strategist's notes on what's been tried and what's promising
-    recent_experiments: list[dict] # last N experiments for this module
-```
 
 ---
 
@@ -287,128 +308,43 @@ In real codebases, modules are not perfectly isolated. In LKH-2 specifically:
 
 ### Rules
 
-1. **Shared headers are owned by the strategist**, not any researcher. If a researcher needs a header change, it proposes the change to the strategist, who applies it to `main` and propagates to all worktrees.
+1. **Shared headers are owned by the strategist**, not any researcher. If a researcher needs a header change, it proposes the change to the strategist (via a note in results.tsv), who applies it to `main` and propagates to all worktrees.
 2. **Function signatures at module boundaries are frozen by default**. A researcher can change internals freely but must not change the signature of functions called by other modules. If a signature change is necessary, the researcher flags it to the strategist.
 3. **The strategist tracks inter-module dependencies** during initialization by analyzing `#include` directives and function call graphs. This informs module decomposition — tightly coupled files go in the same module.
 
 ---
 
-## Concurrency Model
+## Prompts
 
-The strategist and researchers run as **separate asyncio tasks** within a single Python process.
-
-```
-Main process (asyncio event loop)
-├── Strategist task (1)
-│   - Polls state/results.tsv on a timer (every 30s)
-│   - Makes LLM calls for composition decisions, reassignment
-│   - Writes to state/strategist_log.tsv
-│   - Communicates with researchers via shared asyncio.Queue per researcher
-├── Researcher task (N)
-│   - Each runs its own inner loop independently
-│   - Makes LLM calls, runs build/eval as subprocess
-│   - Appends to state/results.tsv (with file locking)
-│   - Checks its queue for interrupt signals from strategist
-└── Signal handler
-    - SIGINT/SIGTERM → sets a shutdown flag
-    - All tasks check the flag and finish current iteration before exiting
-```
-
-**Strategist → Researcher communication:**
-- **Assignment**: strategist puts an `Assignment` message on the researcher's queue
-- **Interrupt/Reassign**: strategist puts a `Reassign` message; researcher finishes current iteration then picks up the new assignment
-- **Shutdown**: strategist puts a `Stop` message; researcher finishes and exits
-
-**Researcher → Strategist communication:**
-- Via `state/results.tsv` (append-only, file-locked). The strategist polls this file.
-- No direct messages back — the strategist infers researcher state from the log.
-
-Build and benchmark commands run as async subprocesses (`asyncio.create_subprocess_exec`) so they don't block the event loop.
-
----
-
-## Error Handling & Recovery
-
-### LLM API Failures
-
-- Retry with exponential backoff (3 attempts, 2s/4s/8s delays)
-- If all retries fail, the researcher pauses and reports to the strategist
-- The strategist can reassign the module to another researcher or wait
-
-### Build Failures
-
-- Researcher reads compiler errors and attempts a fix (up to 3 retries per iteration)
-- If unfixable, `git reset --hard HEAD~1`, log as `crash` in results.tsv, move to next hypothesis
-- Build failures count toward the iteration budget
-
-### Evaluation Failures
-
-- If the binary compiles but crashes or hangs on a benchmark instance: kill after `timeout_per_iteration`, treat as `crash`
-- If the binary produces invalid output (e.g., tour visits a city twice): treat as `crash`
-- Researcher reverts and logs the failure
-
-### Git State Corruption
-
-- Each researcher's worktree is disposable. If corrupted: delete the worktree, recreate from the module branch, resume
-- The strategist checks worktree health before each assignment
-
-### Strategist LLM Failures
-
-- Same retry policy as researchers (3 attempts, exponential backoff)
-- If all retries fail, the strategist pauses all researchers and waits for the API to recover (retry every 60s)
-- If the strategist is down for more than 10 minutes, log a warning to strategist_log.tsv. Researchers continue their current assignments independently — they don't need the strategist for their inner loop.
-
-### System Crash Recovery
-
-- On startup, `algoforge run` checks for an existing `state/` directory
-- If found, it resumes: reads results.tsv to reconstruct progress, verifies branch states, restarts researchers from their last known good commit
-- The strategist re-evaluates priorities based on recovered state
-
----
-
-## Model Layer
-
-OpenRouter as the unified model provider. Supports OpenAI, Anthropic, Google, Databricks, AWS Bedrock, Azure, and others through a single API.
-
-Users configure models per agent role. For the TSP test case, Google Gemini models are the defaults:
-
-```yaml
-agents:
-  strategist:
-    model: "google/gemini-2.5-pro"
-  researchers:
-    count: 4
-    model: "google/gemini-2.5-flash"
-```
-
-Model swapping is a config string change. No code changes required.
-
-### Prompts
-
-AlgoForge ships with **domain-agnostic default prompts** for both strategist and researcher. These work for any target codebase — the domain knowledge comes from:
+AlgoForge ships with **domain-agnostic default prompts** for both strategist and researcher. These are the equivalent of AutoResearch's `program.md`. The domain knowledge comes from:
 - The strategist's web search (papers, techniques, known results)
-- The seed codebase itself (the LLM reads the code)
+- The seed codebase itself (the coding agent reads the code)
 - The config (metric definition, benchmarks)
 - Accumulated experiment history
 
 Users can optionally provide a `domain_context` file with additional hints, but it is not required.
 
-```
-algoforge/
-├── prompts/
-│   ├── strategist.md      # default strategist prompt (domain-agnostic)
-│   └── researcher.md      # default researcher prompt (domain-agnostic)
-```
+### Agent Model Configuration
+
+AlgoForge does not hardcode a specific agent model. The model is configured by the coding tool used to run each session:
+
+- **Claude Code**: `claude --model opus`, `/model sonnet`, or `ANTHROPIC_MODEL` env var
+- **Codex**: configured via its own settings
+- **Other tools**: configured via their respective mechanisms
+
+The orchestrator launches sessions using the coding tool's CLI. The config specifies which tool and any model flags:
 
 ```yaml
 agents:
+  tool: "claude"                         # coding tool CLI command
   strategist:
-    model: "google/gemini-2.5-pro"
-    domain_context: "optional/tsp_context.md"   # optional, not required
+    model_flags: "--model opus"          # passed to the tool on launch
   researchers:
-    model: "google/gemini-2.5-flash"
-    domain_context: "optional/tsp_context.md"   # optional, not required
+    count: 4
+    model_flags: "--model sonnet"        # passed to the tool on launch
 ```
+
+This means AlgoForge works with any coding agent that has a CLI — no OpenRouter, no API key management, no model abstraction layer.
 
 ---
 
@@ -433,8 +369,8 @@ modules:                                # strategist can refine these
     description: "Double-bridge and perturbation strategies"
 
 build:
-  command: "make -j4"                 # incremental build (fast). Use "make clean && make -j4" if Makefile deps are unreliable
-  binary: "./LKH"                     # relative to worktree root
+  command: "make -j4"                   # incremental build. Use "make clean && make -j4" if Makefile deps are unreliable
+  binary: "./LKH"                       # relative to worktree root
 
 benchmarks:
   small: ["benchmarks/tsplib/eil51.tsp", "benchmarks/tsplib/berlin52.tsp"]
@@ -449,27 +385,24 @@ evaluation:
   random_seeds: [42, 123, 456, 789, 1024]  # fixed seeds for reproducibility
 
 agents:
+  tool: "claude"                        # coding tool CLI command
   strategist:
-    model: "google/gemini-2.5-pro"
+    model_flags: "--model opus"
   researchers:
     count: 4
-    model: "google/gemini-2.5-flash"
+    model_flags: "--model sonnet"
     max_iterations_per_assignment: 20
 
 timeouts:
-  llm_call: 60                          # seconds per LLM API call
   build: 30                             # seconds for compilation
   eval_per_instance: 30                 # seconds per benchmark instance per run
 
 stopping_conditions:
   max_total_iterations: 500
   max_hours: 24
-  target_improvement: 0.5              # stop if we beat baseline by X%
+  target_improvement: 0.5              # stop if we beat baseline by X% (absolute reduction in gap)
   stagnation_window: 50                # stop if no improvement in last N iterations
-  max_cost_usd: 50.0                  # stop if total LLM API cost exceeds budget (optional)
 ```
-
-Note: `target_improvement: 0.5` means 0.5% absolute reduction in gap_to_optimal. If the baseline gap is 2.0%, a target of 0.5 means stop when the gap reaches 1.5% or lower.
 
 The module decomposition in config is a starting hint. The strategist can refine it after analyzing the codebase — split modules further, merge them, change file assignments.
 
@@ -480,15 +413,16 @@ The module decomposition in config is a starting hint. The strategist can refine
 ```
 Phase 1: INITIALIZATION
 ├── Load project config
-├── If evolve mode: analyze seed code, decompose into modules
-├── If generate mode: define module interfaces from problem spec
+├── Web search: research the target domain, algorithm, known weaknesses
+├── If seed_path provided: analyze seed code
+├── If seed_path omitted: web search to find and download best available implementation
+├── Decompose codebase into modules (evolve mode) or define interfaces (generate mode)
 ├── Run baseline evaluation (compile + benchmark unmodified code)
-├── Build initial knowledge base (codebase analysis)
 └── Create initial module priority ranking
 
 Phase 2: RESEARCH (main loop)
-├── Assign modules to researchers based on priority scores
-├── Monitor researcher progress (results.tsv)
+├── Write assignment files for researchers
+├── Monitor researcher progress (poll state/results.tsv)
 ├── COMPOSE when triggered (see Composition Timing below)
 ├── Update priority scores based on composition results
 ├── Detect fallback triggers → switch to cross-pollination (last resort)
@@ -520,13 +454,11 @@ Configurable. User picks one or more:
 stopping_conditions:
   max_total_iterations: 500         # hard cap on total experiments
   max_hours: 24                     # wall clock limit
-  target_improvement: 0.5           # stop if baseline beaten by X%
+  target_improvement: 0.5           # stop if baseline beaten by X% (absolute)
   stagnation_window: 50             # stop if no improvement in last N iterations
 ```
 
-The strategist evaluates these after each composed build. When any condition triggers, it stops all researchers (finish current iteration) and enters report mode.
-
-Additionally, `max_total_iterations` and `stagnation_window` are checked by the strategist between compositions (by reading results.tsv) so they can trigger a stop without waiting for the next composition cycle.
+The orchestrator checks these by polling `state/results.tsv`. When any condition triggers, it writes `state/shutdown` and waits for all sessions to finish their current iteration. The strategist then enters report mode.
 
 ### Composition Timing
 
@@ -542,7 +474,7 @@ The strategist triggers a composition when any of these occur:
 ```bash
 algoforge init --seed ./lkh2-src --config config.yaml   # initialize project
 algoforge run config.yaml                                 # start experiment
-algoforge status                                          # check progress
+algoforge status                                          # check progress (reads state/)
 algoforge stop                                            # graceful stop → report
 algoforge report                                          # generate report from completed run
 ```
@@ -554,7 +486,7 @@ Thin wrapper over the CLI:
 ```
 /algoforge-init     → algoforge init
 /algoforge-start    → algoforge run (background)
-/algoforge-status   → reads results.tsv + strategist_log.tsv, summarizes
+/algoforge-status   → reads state/results.tsv + strategist_log.tsv, summarizes
 /algoforge-stop     → sends stop signal
 /algoforge-report   → algoforge report
 ```
@@ -563,30 +495,29 @@ The plugin adds interactive mode (v2): user can chat with the strategist mid-run
 
 ---
 
-## Codebase Structure
+## What We Deleted (vs. previous spec)
 
-```
-algoforge/
-├── __init__.py
-├── cli.py              # CLI entry point (click or argparse)
-├── config.py           # config loading and validation
-├── strategist.py       # strategist agent logic
-├── researcher.py       # researcher agent loop
-├── eval.py             # build + benchmark runner
-├── git_ops.py          # git worktree, branch, merge, reset operations
-└── models.py           # OpenRouter client
-```
+The following are no longer part of AlgoForge because the coding agent handles them natively:
 
-Seven core files. The plugin is a separate package that depends on algoforge.
+- ~~`models.py` (OpenRouter client)~~ → the coding tool's built-in LLM
+- ~~`researcher.py` (edit/compile/eval loop)~~ → the coding agent follows `researcher.md`
+- ~~`strategist.py` (agent logic)~~ → the coding agent follows `strategist.md`
+- ~~`git_ops.py` (git operations)~~ → the coding agent runs git commands
+- ~~Search/replace edit application~~ → the coding agent's native Edit function
+- ~~Error handling for builds~~ → the coding agent reads errors and fixes them
+- ~~Web search client~~ → the coding agent has web search
+- ~~LLM interaction protocol~~ → the coding tool handles prompt construction, context management, token budgets
+- ~~Concurrency model (asyncio, queues)~~ → each session is a separate process, communication via filesystem
+- ~~OpenRouter / model abstraction~~ → model configured by the coding tool
 
 ---
 
 ## TSP Test Case: Setup Steps
 
-1. Download LKH-2 source from Helsgaun's site
+1. Download LKH-2 source from Helsgaun's site (or let the strategist find it)
 2. Compile and verify it runs on the target machine
 3. Download TSPLIB benchmark instances
 4. Run LKH-2 against all benchmark tiers (small/medium/large)
 5. Record baseline results
 6. Configure algoforge project with LKH-2 as seed
-7. Run algoforge
+7. `algoforge run config.yaml`
