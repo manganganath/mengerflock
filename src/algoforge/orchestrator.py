@@ -62,34 +62,11 @@ def check_stopping_conditions(
     return False, ""
 
 
-def build_session_command(
-    tool: str,
-    model_flags: str,
-    prompt_path: str,
-    working_dir: str,
-    researcher_id: str | None = None,
-) -> list[str]:
-    cmd = [tool]
-    if model_flags:
-        cmd.extend(shlex.split(model_flags))
-
-    id_part = f" Your researcher ID is {researcher_id}." if researcher_id else ""
-
-    cmd.extend([
-        "-p",
-        f"Read {prompt_path} and follow its instructions.{id_part}",
-        "--allowedTools", "Edit,Read,Write,Bash,Glob,Grep",
-    ])
-
-    return cmd
-
-
 class Orchestrator:
     def __init__(self, project_dir: Path, config: AlgoForgeConfig):
         self.project_dir = project_dir
         self.config = config
         self.state_dir = project_dir / "state"
-        self.processes: dict[str, subprocess.Popen] = {}
         self.start_time = time.time()
         self._shutdown = False
 
@@ -101,6 +78,32 @@ class Orchestrator:
         signal.signal(signal.SIGINT, self._handle_signal)
         signal.signal(signal.SIGTERM, self._handle_signal)
 
+    def launch_strategist(self) -> None:
+        tool = self.config.agents.tool
+        model_flags = self.config.agents.strategist.model_flags
+
+        # Create tmux window with interactive claude
+        subprocess.run([
+            "tmux", "new-window", "-t", "algoforge",
+            "-n", "strategist",
+            "-c", str(self.project_dir),
+            f"{tool} {model_flags}"
+        ], check=True)
+
+        # Wait for claude to start, then send the prompt
+        time.sleep(3)
+        prompt = (
+            "Read strategist.md and follow its instructions. "
+            "This is the project root directory. "
+            "State files are in state/. Benchmarks in datasets/. "
+            "Eval script is eval.sh. "
+            "After initialization, enter Phase 2 and monitor continuously."
+        )
+        subprocess.run([
+            "tmux", "send-keys", "-t", "algoforge:strategist",
+            prompt, "Enter"
+        ], check=True)
+
     def launch_researcher(self, researcher_id: str, module_name: str) -> None:
         wt_path = self.project_dir / ".worktrees" / researcher_id
         branch = f"module/{module_name}"
@@ -108,29 +111,39 @@ class Orchestrator:
         if not wt_path.exists():
             create_worktree(self.project_dir, wt_path, branch)
 
-        prompt_path = str(self.project_dir / "prompts" / "researcher.md")
-        cmd = build_session_command(
-            tool=self.config.agents.tool,
-            model_flags=self.config.agents.researchers.model_flags,
-            prompt_path=prompt_path,
-            working_dir=str(wt_path),
-            researcher_id=researcher_id,
+        # Create symlinks
+        state_link = wt_path / "state"
+        if not state_link.exists():
+            state_link.symlink_to(self.state_dir)
+
+        for name in ["eval.sh", "datasets"]:
+            link = wt_path / name
+            src = self.project_dir / name
+            if src.exists() and not link.exists():
+                link.symlink_to(src)
+
+        tool = self.config.agents.tool
+        model_flags = self.config.agents.researchers.model_flags
+
+        # Create tmux window
+        subprocess.run([
+            "tmux", "new-window", "-t", "algoforge",
+            "-n", researcher_id,
+            "-c", str(wt_path),
+            f"{tool} {model_flags}"
+        ], check=True)
+
+        # Wait then send prompt
+        time.sleep(3)
+        prompt = (
+            f"Read researcher.md and follow its instructions. "
+            f"Your researcher ID is {researcher_id}. "
+            f"State, datasets, and eval.sh are symlinked in your working directory."
         )
-
-        proc = subprocess.Popen(cmd, cwd=wt_path)
-        self.processes[researcher_id] = proc
-
-    def launch_strategist(self) -> None:
-        prompt_path = str(self.project_dir / "prompts" / "strategist.md")
-        cmd = build_session_command(
-            tool=self.config.agents.tool,
-            model_flags=self.config.agents.strategist.model_flags,
-            prompt_path=prompt_path,
-            working_dir=str(self.project_dir),
-        )
-
-        proc = subprocess.Popen(cmd, cwd=self.project_dir)
-        self.processes["strategist"] = proc
+        subprocess.run([
+            "tmux", "send-keys", "-t", f"algoforge:{researcher_id}",
+            prompt, "Enter"
+        ], check=True)
 
     def monitor(self, poll_interval: float = 30.0) -> None:
         while not self._shutdown:
@@ -142,12 +155,12 @@ class Orchestrator:
                 self.shutdown()
                 return
 
-            for pid, proc in list(self.processes.items()):
-                if proc.poll() is not None:
-                    print(f"Session {pid} exited with code {proc.returncode}")
-                    del self.processes[pid]
-
-            if not self.processes:
+            # Check if tmux session still has windows
+            result = subprocess.run(
+                ["tmux", "list-windows", "-t", "algoforge"],
+                capture_output=True, check=False
+            )
+            if result.returncode != 0:
                 print("All sessions have exited")
                 return
 
@@ -157,12 +170,25 @@ class Orchestrator:
         self._shutdown = True
         write_shutdown_flag(self.state_dir)
 
-        for pid, proc in self.processes.items():
-            print(f"Waiting for {pid} to finish...")
-            proc.wait(timeout=120)
+        # Send /exit to all windows
+        result = subprocess.run(
+            ["tmux", "list-windows", "-t", "algoforge", "-F", "#{window_name}"],
+            capture_output=True, text=True, check=False
+        )
+        if result.returncode == 0:
+            for window in result.stdout.strip().split('\n'):
+                if window:
+                    subprocess.run([
+                        "tmux", "send-keys", "-t", f"algoforge:{window}",
+                        "/exit", "Enter"
+                    ], check=False)
 
     def run(self) -> None:
         self.setup_signal_handlers()
+
+        # Create tmux session
+        subprocess.run(["tmux", "new-session", "-d", "-s", "algoforge"], check=False)
+
         self.launch_strategist()
 
         for i in range(self.config.agents.researchers.count):

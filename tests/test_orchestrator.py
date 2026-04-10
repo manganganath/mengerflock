@@ -5,7 +5,6 @@ from algoforge.config import load_config
 from algoforge.orchestrator import (
     init_project,
     check_stopping_conditions,
-    build_session_command,
 )
 from algoforge.state import init_state_dir, append_result
 
@@ -56,16 +55,3 @@ def test_check_stopping_not_triggered(tmp_project):
 
     triggered, reason = check_stopping_conditions(state_dir, config, start_time=time.time())
     assert not triggered
-
-
-def test_build_session_command():
-    cmd = build_session_command(
-        tool="claude",
-        model_flags="--model sonnet",
-        prompt_path="/project/prompts/researcher.md",
-        working_dir="/project/.worktrees/r1",
-        researcher_id="r1",
-    )
-    assert "claude" in cmd[0]
-    assert "--model" in cmd
-    assert "sonnet" in cmd

@@ -30,7 +30,7 @@ All shared state is in the `state/` directory at the project root (the directory
    - Key algorithms and data structures
    - Potential improvement areas
 
-5. **Run baseline**: Compile and run benchmarks on the unmodified code using `eval.sh` (macOS compatible). Record baseline results as the first entry in `state/results.tsv` with status `baseline`.
+5. **Run baseline**: Run a quick baseline on small training instances only (1 seed each). Record results. Don't evaluate all tiers — refine baselines during Phase 2 as needed.
    Tag this state: `git tag baseline`
 
 6. **Create initial assignments**: Write `state/assignments/r<id>.yaml` for each researcher with:
@@ -42,7 +42,13 @@ All shared state is in the `state/` directory at the project root (the directory
    context: <your analysis of this module and what might work>
    ```
 
-7. **After completing initialization, do NOT exit.** Proceed immediately to Phase 2.
+7. **Generate training and validation datasets**: Inspect the holdout files to understand the format. Generate synthetic instances in the same format:
+   - Train: diverse sizes and distributions for researchers
+   - Validation: separate set for composition evaluation
+   Write them to `datasets/train/` and `datasets/validation/`.
+   Rule: train and validation files must be in the same format as holdout so the binary can consume them without modification.
+
+8. **After completing initialization, do NOT exit.** Proceed immediately to Phase 2.
 
 ## Research Loop (Phase 2)
 
