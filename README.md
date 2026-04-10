@@ -28,7 +28,7 @@ Any codebase where you can compile, run against benchmarks, and get a number bac
 
 | Domain | Examples |
 |---|---|
-| **Combinatorial Optimization** | TSP heuristics (first test case — beating LKH-2), vehicle routing, graph coloring, bin packing, scheduling |
+| **Combinatorial Optimization** | Routing heuristics, vehicle routing, graph coloring, bin packing, scheduling |
 | **Search & Solvers** | SAT solvers, constraint satisfaction, branch-and-bound, local search frameworks |
 | **Numerical Computing** | Matrix multiplication kernels, sorting algorithms, compression, signal processing |
 | **ML Training** | Neural network training loops, optimizer implementations, data augmentation |
@@ -74,9 +74,9 @@ build:
   binary: "./solver"
 
 benchmarks:
-  small: ["bench/small1.tsp"]
-  medium: ["bench/med1.tsp"]
-  large: ["bench/large1.tsp"]
+  small: ["bench/small1.txt"]
+  medium: ["bench/med1.txt"]
+  large: ["bench/large1.txt"]
 
 evaluation:
   metric: "gap_to_optimal"
@@ -125,7 +125,6 @@ algoforge/
 ├── prompts/
 │   ├── strategist.md       # strategist agent instructions
 │   └── researcher.md       # researcher agent instructions
-├── examples/
-│   └── tsp/                # first test case: beating LKH-2
+├── examples/               # example project configs
 └── tests/
 ```
