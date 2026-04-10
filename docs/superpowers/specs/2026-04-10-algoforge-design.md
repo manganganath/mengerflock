@@ -71,7 +71,19 @@ Seed code exists. The strategist decomposes it into modules and researchers impr
 
 ### Generate Mode
 
-No seed code. The strategist defines the problem specification and module interfaces. Researchers generate implementations from scratch, guided by the strategist's domain knowledge.
+No seed code. The strategist defines the problem specification and module interfaces from the config. Researchers generate implementations from scratch, guided by the strategist's domain knowledge.
+
+In generate mode:
+- The strategist creates empty module files with interface stubs (function signatures, expected inputs/outputs)
+- Researchers implement the module internals from scratch
+- The first few iterations focus on producing code that compiles and produces valid output (correctness before optimization)
+- Once a working baseline exists, the normal evolve loop takes over (improve the metric)
+
+The config must provide:
+- `problem_spec`: description of the problem and expected I/O format
+- `modules`: module names with interface descriptions (instead of file paths)
+- `build` and `benchmarks`: same as evolve mode
+- `reference_materials` (optional): papers, pseudocode, or documentation the researchers can reference
 
 ---
 
@@ -100,7 +112,7 @@ Cross-pollination is a last resort, not a convenience escape. The strategist mus
 
 ## State Management
 
-Git is the state manager. No custom filesystem structures.
+Git manages code versioning. Shared state files live outside git.
 
 ### Git Branching
 
@@ -109,33 +121,60 @@ Git is the state manager. No custom filesystem structures.
 - `crosspollin/<id>` — full-codebase branches for fallback mode
 - Tags mark baselines and milestone compositions
 
+### Git Worktrees for Concurrency
+
+Each researcher operates in its own `git worktree`. This is required because multiple researchers cannot share a single working directory — `git checkout` on one branch would clobber another researcher's files.
+
+On initialization:
+- The strategist creates one worktree per researcher: `git worktree add .worktrees/r<id> module/<name>`
+- Each researcher works exclusively in its worktree
+- The strategist operates in the main working directory
+
+Worktrees are created/destroyed as researchers are assigned/reassigned. They are lightweight (shared `.git` objects) but provide full filesystem isolation.
+
 ### Project Directory
 
 ```
 project/
 ├── config.yaml              # project configuration
 ├── seed/                    # original code (read-only, tagged in git)
-├── results.tsv              # single flat experiment log (append-only)
-├── strategist_log.tsv       # strategist decisions
-└── benchmarks/              # benchmark instances (e.g., TSPLIB .tsp files)
+├── state/                   # shared state (outside git)
+│   ├── results.tsv          # single flat experiment log (append-only)
+│   └── strategist_log.tsv   # strategist decisions
+├── benchmarks/              # benchmark instances (e.g., TSPLIB .tsp files)
+└── .worktrees/              # git worktrees (one per researcher)
+    ├── r1/
+    ├── r2/
+    └── ...
 ```
+
+`state/` lives outside git so all agents can read/write it regardless of branch. File-level locking (e.g., `fcntl.flock`) prevents concurrent append corruption.
 
 ### results.tsv Format
 
 Tab-separated, append-only:
 
 ```
-timestamp	researcher	module	commit	metric	status	hypothesis	description
-2026-04-10T14:30:00	r1	move_operators	a1b2c3d	0.0012	keep	Reorder edge candidate evaluation	Changed sorting in Best2OptMove.c
-2026-04-10T14:32:00	r2	candidate_edges	b2c3d4e	0.0015	discard	Increase alpha-nearness threshold	Modified CreateCandidateSet.c threshold
+timestamp	researcher	module	commit	metric_avg	metric_best	status	hypothesis	description
+2026-04-10T14:30:00	r1	move_operators	a1b2c3d	0.0012	0.0008	keep	Reorder edge candidate evaluation	Changed sorting in Best2OptMove.c
+2026-04-10T14:32:00	r2	candidate_edges	b2c3d4e	0.0015	0.0011	discard	Increase alpha-nearness threshold	Modified CreateCandidateSet.c threshold
+```
+
+### strategist_log.tsv Format
+
+```
+timestamp	action	details
+2026-04-10T14:00:00	init	Decomposed into 3 modules: move_operators, candidate_edges, perturbation
+2026-04-10T14:35:00	compose	Merged module/move_operators + module/candidate_edges → avg gap 0.0010
+2026-04-10T14:36:00	reassign	Moved r3 from candidate_edges to perturbation (stagnation after 15 iterations)
 ```
 
 ### Researcher Loop State
 
-- Edit → `git commit` on module branch
+- Edit → `git commit` on module branch (in worktree)
 - Better → keep commit (branch advances)
-- Worse → `git reset` (branch reverts)
-- Full experiment history is in git log + results.tsv
+- Worse → `git reset --hard HEAD~1` (reverts to previous commit; safe because the researcher just committed)
+- Full experiment history is in git log + state/results.tsv
 
 ### Strategist Composition
 
@@ -143,6 +182,173 @@ timestamp	researcher	module	commit	metric	status	hypothesis	description
 - Build and evaluate against benchmarks
 - If better than `main` → fast-forward `main`
 - Tag milestone compositions
+
+---
+
+## LLM Interaction Protocol
+
+### Researcher Prompt Structure
+
+Each researcher iteration sends the following context to the model:
+
+1. **System prompt** — role description, constraints (only edit assigned files, must compile, etc.)
+2. **Module source** — full content of the assigned files. For large files, the strategist may provide a summarized version with key sections highlighted.
+3. **Assignment** — objective text from the strategist, specific areas to explore
+4. **Recent experiment history** — last 10-20 entries from results.tsv for this module (not the full history). Includes hypothesis, result, and keep/discard status so the model avoids repeating failures.
+5. **Build/eval feedback** — on retry iterations: compiler errors or benchmark output from the previous attempt
+
+The model responds with:
+- Hypothesis (one sentence)
+- Code edits as **search/replace blocks** (file path, old text, new text). This format is more reliable than unified diffs for LLM-generated edits. For small files (<200 lines), the model may return the full file content instead.
+- Reasoning (why this should improve the metric)
+
+The framework applies edits by: (1) validating the old text exists in the file, (2) replacing with new text, (3) if the old text is not found (LLM hallucination), asking the model to retry with the actual file content. Full file rewrites are applied directly.
+
+### Strategist Prompt Structure
+
+1. **System prompt** — role as research PI, responsibilities, decision framework
+2. **Codebase summary** — module list with file sizes, key functions, and inter-module dependencies (not full source)
+3. **Full results.tsv** — complete experiment history across all researchers
+4. **Current state** — which researcher is on which module, iteration counts, latest composition result
+5. **Decision request** — "compose now?", "reassign researchers?", "switch to cross-pollination?"
+
+### Context Management
+
+- **Token budget**: each researcher call should stay under 50% of the model's context window, leaving room for the response. For Gemini Flash (1M context), this is generous. For smaller models, the strategist provides summarized module source instead of full files.
+- **History pruning**: only the last N experiments per module are included in researcher prompts. The strategist sees the full history.
+- **Large files**: if a module file exceeds 1000 lines, the strategist provides an annotated summary (key functions, data structures, hot paths) alongside the full source. The researcher can request specific line ranges.
+
+### Assignment Data Structure
+
+```python
+@dataclass
+class Assignment:
+    module_name: str
+    files: list[str]              # paths relative to repo root
+    objective: str                # what to improve and why
+    constraints: list[str]        # e.g., "do not change function signatures in LKH.h"
+    context: str                  # strategist's notes on what's been tried and what's promising
+    recent_experiments: list[dict] # last N experiments for this module
+```
+
+---
+
+## Evaluation & Metrics
+
+### Metric Definition
+
+Primary metric: **gap_to_optimal** = `(tour_length - optimal) / optimal`
+
+Where `optimal` is the known best solution for each TSPLIB instance.
+
+### Aggregation
+
+- **Per-instance**: run the solver `runs_per_instance` times (default 5) using **fixed random seeds** for reproducibility. Take the **mean** of all runs as the instance score.
+- **Per-tier**: compute the **geometric mean** of per-instance gaps across all instances in the tier. Geometric mean prevents a single outlier instance from dominating.
+- **Overall**: the primary comparison metric is the geometric mean gap on the **small** tier (for researcher keep/discard) or **all tiers** (for strategist composition evaluation).
+
+### Keep/Discard Decision
+
+A researcher keeps a mutation if:
+- The geometric mean gap on the small tier is **strictly lower** than the current module best
+- The mutation does not cause any instance to regress by more than 2x its current gap (prevents trading broad improvement for catastrophic regression on one instance)
+
+### Progressive Evaluation
+
+1. **Small tier first** — every mutation is evaluated here. Fast feedback (~seconds per instance).
+2. **Promotion to medium** — if a mutation survives 3 consecutive keep decisions on small, it is also evaluated on medium tier.
+3. **Promotion to large** — only during strategist composition. The composed build is evaluated on all tiers.
+4. **No demotion** — once promoted, the researcher continues evaluating on all promoted tiers.
+
+---
+
+## Module Coupling & Shared Dependencies
+
+### The Problem
+
+In real codebases, modules are not perfectly isolated. In LKH-2 specifically:
+- `LinKernighan.c` (perturbation module) calls functions defined in `Best2OptMove.c`, `Best3OptMove.c` (move operators module)
+- Shared header files (`LKH.h`) define data structures used by all modules
+- Changing a function signature in one module breaks callers in another
+
+### Rules
+
+1. **Shared headers are owned by the strategist**, not any researcher. If a researcher needs a header change, it proposes the change to the strategist, who applies it to `main` and propagates to all worktrees.
+2. **Function signatures at module boundaries are frozen by default**. A researcher can change internals freely but must not change the signature of functions called by other modules. If a signature change is necessary, the researcher flags it to the strategist.
+3. **The strategist tracks inter-module dependencies** during initialization by analyzing `#include` directives and function call graphs. This informs module decomposition — tightly coupled files go in the same module.
+
+---
+
+## Concurrency Model
+
+The strategist and researchers run as **separate asyncio tasks** within a single Python process.
+
+```
+Main process (asyncio event loop)
+├── Strategist task (1)
+│   - Polls state/results.tsv on a timer (every 30s)
+│   - Makes LLM calls for composition decisions, reassignment
+│   - Writes to state/strategist_log.tsv
+│   - Communicates with researchers via shared asyncio.Queue per researcher
+├── Researcher task (N)
+│   - Each runs its own inner loop independently
+│   - Makes LLM calls, runs build/eval as subprocess
+│   - Appends to state/results.tsv (with file locking)
+│   - Checks its queue for interrupt signals from strategist
+└── Signal handler
+    - SIGINT/SIGTERM → sets a shutdown flag
+    - All tasks check the flag and finish current iteration before exiting
+```
+
+**Strategist → Researcher communication:**
+- **Assignment**: strategist puts an `Assignment` message on the researcher's queue
+- **Interrupt/Reassign**: strategist puts a `Reassign` message; researcher finishes current iteration then picks up the new assignment
+- **Shutdown**: strategist puts a `Stop` message; researcher finishes and exits
+
+**Researcher → Strategist communication:**
+- Via `state/results.tsv` (append-only, file-locked). The strategist polls this file.
+- No direct messages back — the strategist infers researcher state from the log.
+
+Build and benchmark commands run as async subprocesses (`asyncio.create_subprocess_exec`) so they don't block the event loop.
+
+---
+
+## Error Handling & Recovery
+
+### LLM API Failures
+
+- Retry with exponential backoff (3 attempts, 2s/4s/8s delays)
+- If all retries fail, the researcher pauses and reports to the strategist
+- The strategist can reassign the module to another researcher or wait
+
+### Build Failures
+
+- Researcher reads compiler errors and attempts a fix (up to 3 retries per iteration)
+- If unfixable, `git reset --hard HEAD~1`, log as `crash` in results.tsv, move to next hypothesis
+- Build failures count toward the iteration budget
+
+### Evaluation Failures
+
+- If the binary compiles but crashes or hangs on a benchmark instance: kill after `timeout_per_iteration`, treat as `crash`
+- If the binary produces invalid output (e.g., tour visits a city twice): treat as `crash`
+- Researcher reverts and logs the failure
+
+### Git State Corruption
+
+- Each researcher's worktree is disposable. If corrupted: delete the worktree, recreate from the module branch, resume
+- The strategist checks worktree health before each assignment
+
+### Strategist LLM Failures
+
+- Same retry policy as researchers (3 attempts, exponential backoff)
+- If all retries fail, the strategist pauses all researchers and waits for the API to recover (retry every 60s)
+- If the strategist is down for more than 10 minutes, log a warning to strategist_log.tsv. Researchers continue their current assignments independently — they don't need the strategist for their inner loop.
+
+### System Crash Recovery
+
+- On startup, `algoforge run` checks for an existing `state/` directory
+- If found, it resumes: reads results.tsv to reconstruct progress, verifies branch states, restarts researchers from their last known good commit
+- The strategist re-evaluates priorities based on recovered state
 
 ---
 
@@ -186,8 +392,8 @@ modules:                                # strategist can refine these
     description: "Double-bridge and perturbation strategies"
 
 build:
-  command: "make -j4"
-  binary: "./LKH"
+  command: "make -j4"                 # incremental build (fast). Use "make clean && make -j4" if Makefile deps are unreliable
+  binary: "./LKH"                     # relative to worktree root
 
 benchmarks:
   small: ["benchmarks/tsplib/eil51.tsp", "benchmarks/tsplib/berlin52.tsp"]
@@ -198,7 +404,8 @@ benchmarks:
 evaluation:
   metric: "gap_to_optimal"              # (tour_length - optimal) / optimal
   progressive: true                     # small first, promote to larger
-  runs_per_instance: 5                  # average over multiple runs
+  runs_per_instance: 5                  # mean over multiple runs
+  random_seeds: [42, 123, 456, 789, 1024]  # fixed seeds for reproducibility
 
 agents:
   strategist:
@@ -207,14 +414,21 @@ agents:
     count: 4
     model: "google/gemini-2.5-flash"
     max_iterations_per_assignment: 20
-    timeout_per_iteration: 120          # seconds
+
+timeouts:
+  llm_call: 60                          # seconds per LLM API call
+  build: 30                             # seconds for compilation
+  eval_per_instance: 30                 # seconds per benchmark instance per run
 
 stopping_conditions:
   max_total_iterations: 500
   max_hours: 24
   target_improvement: 0.5              # stop if we beat baseline by X%
   stagnation_window: 50                # stop if no improvement in last N iterations
+  max_cost_usd: 50.0                  # stop if total LLM API cost exceeds budget (optional)
 ```
+
+Note: `target_improvement: 0.5` means 0.5% absolute reduction in gap_to_optimal. If the baseline gap is 2.0%, a target of 0.5 means stop when the gap reaches 1.5% or lower.
 
 The module decomposition in config is a starting hint. The strategist can refine it after analyzing the codebase — split modules further, merge them, change file assignments.
 
@@ -234,7 +448,7 @@ Phase 1: INITIALIZATION
 Phase 2: RESEARCH (main loop)
 ├── Assign modules to researchers based on priority scores
 ├── Monitor researcher progress (results.tsv)
-├── Periodically COMPOSE: merge best module branches → build → evaluate
+├── COMPOSE when triggered (see Composition Timing below)
 ├── Update priority scores based on composition results
 ├── Detect fallback triggers → switch to cross-pollination (last resort)
 ├── Reassign researchers on stagnation or breakthroughs
@@ -271,6 +485,15 @@ stopping_conditions:
 
 The strategist evaluates these after each composed build. When any condition triggers, it stops all researchers (finish current iteration) and enters report mode.
 
+Additionally, `max_total_iterations` and `stagnation_window` are checked by the strategist between compositions (by reading results.tsv) so they can trigger a stop without waiting for the next composition cycle.
+
+### Composition Timing
+
+The strategist triggers a composition when any of these occur:
+- A researcher reports a new module-level best (a `keep` entry in results.tsv)
+- A configurable time interval passes with no composition (default: 10 minutes)
+- The strategist is about to reassign researchers (compose first to get the latest baseline)
+
 ---
 
 ## CLI Interface
@@ -295,7 +518,7 @@ Thin wrapper over the CLI:
 /algoforge-report   → algoforge report
 ```
 
-The plugin adds interactive mode: user can chat with the strategist mid-run to ask about decisions, suggest directions, or override priorities.
+The plugin adds interactive mode (v2): user can chat with the strategist mid-run to ask about decisions, suggest directions, or override priorities.
 
 ---
 
@@ -309,10 +532,11 @@ algoforge/
 ├── strategist.py       # strategist agent logic
 ├── researcher.py       # researcher agent loop
 ├── eval.py             # build + benchmark runner
+├── git_ops.py          # git worktree, branch, merge, reset operations
 └── models.py           # OpenRouter client
 ```
 
-Six core files. The plugin is a separate package that depends on algoforge.
+Seven core files. The plugin is a separate package that depends on algoforge.
 
 ---
 
