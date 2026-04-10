@@ -2,6 +2,7 @@
 # AlgoForge benchmark evaluation script
 # Usage: ./eval.sh <binary> <instance.tsp> <seed> <timeout>
 # Output: tour_length on stdout, or "FAIL" on error
+# Compatible with macOS and Linux
 
 set -euo pipefail
 
@@ -20,9 +21,11 @@ if [ ! -f "$INSTANCE" ]; then
     exit 1
 fi
 
-# Create a temporary parameter file for LKH
-PARAM_FILE=$(mktemp /tmp/algoforge_eval_XXXXXX.par)
-TOUR_FILE=$(mktemp /tmp/algoforge_eval_XXXXXX.tour)
+# Create temporary files (macOS-compatible mktemp)
+PARAM_FILE=$(mktemp /tmp/algoforge_eval_XXXXXX)
+TOUR_FILE=$(mktemp /tmp/algoforge_eval_tour_XXXXXX)
+
+trap 'rm -f "$PARAM_FILE" "$TOUR_FILE"' EXIT
 
 cat > "$PARAM_FILE" <<EOF
 PROBLEM_FILE = $INSTANCE
@@ -31,12 +34,22 @@ SEED = $SEED
 RUNS = 1
 EOF
 
-# Run with timeout
-if timeout "$TIMEOUT" "$BINARY" "$PARAM_FILE" > /dev/null 2>&1; then
-    # Extract tour length from tour file
+# macOS-compatible timeout using perl
+_timeout() {
+    local secs="$1"; shift
+    perl -e 'alarm shift; exec @ARGV' "$secs" "$@"
+}
+
+if _timeout "$TIMEOUT" "$BINARY" "$PARAM_FILE" > /dev/null 2>&1; then
     if [ -f "$TOUR_FILE" ]; then
-        TOUR_LENGTH=$(grep -oP '(?<=COMMENT : Length = )\d+' "$TOUR_FILE" || echo "FAIL")
-        echo "$TOUR_LENGTH"
+        # Extract tour length (compatible grep, no GNU -oP)
+        TOUR_LENGTH=$(grep 'COMMENT : Length = ' "$TOUR_FILE" | sed 's/.*Length = //' | tr -d '[:space:]')
+        if [ -n "$TOUR_LENGTH" ]; then
+            echo "$TOUR_LENGTH"
+        else
+            echo "FAIL: could not parse tour length" >&2
+            exit 1
+        fi
     else
         echo "FAIL: no tour file produced" >&2
         exit 1
@@ -45,6 +58,3 @@ else
     echo "FAIL: timeout or crash" >&2
     exit 1
 fi
-
-# Cleanup
-rm -f "$PARAM_FILE" "$TOUR_FILE"
