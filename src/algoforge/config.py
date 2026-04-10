@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import dataclasses
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 import yaml
 
@@ -13,88 +13,84 @@ class ConfigError(Exception):
     """Raised when the configuration is invalid or missing required fields."""
 
 
-def _require(raw: dict[str, Any], key: str, context: str) -> Any:
+def _require(raw: dict[str, Any], key: str, context: str = "") -> Any:
     """Return raw[key], raising ConfigError if the key is absent."""
     if key not in raw:
-        raise ConfigError(f"Missing required field '{key}' in {context}")
+        ctx = f" in {context}" if context else ""
+        raise ConfigError(f"Missing required field '{key}'{ctx}")
     return raw[key]
 
 
 @dataclasses.dataclass
 class ProjectConfig:
     name: str
-    mode: str  # "evolve" or "generate"
-    seed_path: str | None = None
-    problem_spec: str | None = None
+    mode: str
+    language: str
+    seed_path: Optional[str] = None
+    problem_spec: Optional[str] = None
+    reference_materials: Optional[list[str]] = None
 
 
 @dataclasses.dataclass
 class ModuleConfig:
-    entry_point: str
-    name: str = ""
+    name: str
+    files: list[str]
+    description: str
 
 
 @dataclasses.dataclass
 class BuildConfig:
     command: str
-    timeout: int
+    binary: str
 
 
 @dataclasses.dataclass
 class BenchmarkConfig:
-    command: str
-    timeout: int
+    small: list[str]
+    medium: list[str] = dataclasses.field(default_factory=list)
+    large: list[str] = dataclasses.field(default_factory=list)
+    baseline_results: Optional[str] = None
 
 
 @dataclasses.dataclass
 class EvaluationConfig:
     metric: str
-    direction: str  # "maximize" or "minimize"
+    progressive: bool = True
+    runs_per_instance: int = 5
+    random_seeds: list[int] = dataclasses.field(default_factory=lambda: [42, 123, 456, 789, 1024])
 
 
 @dataclasses.dataclass
 class StrategistConfig:
-    model: str
     model_flags: str = ""
 
 
 @dataclasses.dataclass
 class ResearcherConfig:
-    model: str
     count: int
     model_flags: str = ""
+    max_iterations_per_assignment: int = 20
 
 
 @dataclasses.dataclass
 class AgentsConfig:
+    tool: str
     strategist: StrategistConfig
-    researcher: ResearcherConfig
-    tool: str = "claude"
-
-    @property
-    def researchers(self) -> "ResearcherConfig":
-        """Alias for researcher (plural form used by orchestrator)."""
-        return self.researcher
+    researchers: ResearcherConfig
 
 
 @dataclasses.dataclass
 class TimeoutsConfig:
-    iteration: int
-    total: int
+    build: int = 30
+    eval_per_instance: int = 30
 
 
 @dataclasses.dataclass
 class StoppingConditions:
-    max_iterations: int
-    target_score: float | None = None
-    max_hours: float = 24.0
-    target_improvement: float = 0.0
-    stagnation_window: int = 20
-
-    @property
-    def max_total_iterations(self) -> int:
-        """Alias for max_iterations (used by orchestrator)."""
-        return self.max_iterations
+    max_total_iterations: int = 500
+    max_hours: float = 24
+    target_improvement: float = 0.5
+    stagnation_window: int = 50
 
 
 @dataclasses.dataclass
@@ -110,130 +106,100 @@ class AlgoForgeConfig:
 
 
 def load_config(path: str | Path) -> AlgoForgeConfig:
-    """Load and validate an AlgoForge config YAML file.
-
-    Args:
-        path: Path to the config.yaml file.
-
-    Returns:
-        A fully validated AlgoForgeConfig dataclass.
-
-    Raises:
-        FileNotFoundError: If the config file does not exist.
-        ConfigError: If a required field is missing or a value is invalid.
-    """
     path = Path(path)
     if not path.exists():
         raise FileNotFoundError(f"Config file not found: {path}")
 
-    with path.open("r") as fh:
-        raw: dict[str, Any] = yaml.safe_load(fh) or {}
+    raw = yaml.safe_load(path.read_text())
+    if not isinstance(raw, dict):
+        raise ConfigError("Config must be a YAML mapping")
 
-    # ── project ──────────────────────────────────────────────────────────────
-    raw_project = _require(raw, "project", "root")
-    name = _require(raw_project, "name", "project")
-    mode = _require(raw_project, "mode", "project")
-
+    # Project
+    proj_raw = _require(raw, "project")
+    mode = _require(proj_raw, "mode", "project")
     if mode not in ("evolve", "generate"):
-        raise ConfigError(
-            f"project.mode must be 'evolve' or 'generate', got '{mode}'"
-        )
-
-    seed_path = raw_project.get("seed_path")
-    problem_spec = raw_project.get("problem_spec")
-
-    if mode == "generate" and not problem_spec:
-        raise ConfigError(
-            "project.problem_spec is required when mode is 'generate'"
-        )
+        raise ConfigError(f"project.mode must be 'evolve' or 'generate', got '{mode}'")
 
     project = ProjectConfig(
-        name=name,
+        name=_require(proj_raw, "name", "project"),
         mode=mode,
-        seed_path=seed_path,
-        problem_spec=problem_spec,
+        language=proj_raw.get("language", ""),
+        seed_path=proj_raw.get("seed_path"),
+        problem_spec=proj_raw.get("problem_spec"),
+        reference_materials=proj_raw.get("reference_materials"),
     )
 
-    # ── modules ───────────────────────────────────────────────────────────────
-    raw_modules = _require(raw, "modules", "root")
-    if isinstance(raw_modules, list):
-        # New list-of-modules format: [{name: mod_a, entry_point: ...}, ...]
-        modules = [
-            ModuleConfig(
-                entry_point=_require(m, "entry_point", f"modules[{i}]"),
-                name=m.get("name", f"module_{i}"),
-            )
-            for i, m in enumerate(raw_modules)
-        ]
-    else:
-        # Legacy single-module format: {entry_point: ...}
-        entry_point = _require(raw_modules, "entry_point", "modules")
-        module_name = raw_modules.get("name", "default")
-        modules = [ModuleConfig(entry_point=entry_point, name=module_name)]
+    if mode == "generate" and not project.problem_spec:
+        raise ConfigError("project.problem_spec is required in generate mode")
 
-    # ── build ─────────────────────────────────────────────────────────────────
-    raw_build = _require(raw, "build", "root")
-    build = BuildConfig(
-        command=_require(raw_build, "command", "build"),
-        timeout=_require(raw_build, "timeout", "build"),
-    )
-
-    # ── benchmarks ────────────────────────────────────────────────────────────
-    raw_bench = _require(raw, "benchmarks", "root")
-    benchmarks = BenchmarkConfig(
-        command=_require(raw_bench, "command", "benchmarks"),
-        timeout=_require(raw_bench, "timeout", "benchmarks"),
-    )
-
-    # ── evaluation ────────────────────────────────────────────────────────────
-    raw_eval = _require(raw, "evaluation", "root")
-    evaluation = EvaluationConfig(
-        metric=_require(raw_eval, "metric", "evaluation"),
-        direction=_require(raw_eval, "direction", "evaluation"),
-    )
-
-    # ── agents ────────────────────────────────────────────────────────────────
-    raw_agents = _require(raw, "agents", "root")
-
-    raw_strategist = _require(raw_agents, "strategist", "agents")
-    strategist = StrategistConfig(
-        model=_require(raw_strategist, "model", "agents.strategist"),
-        model_flags=raw_strategist.get("model_flags", ""),
-    )
-
-    raw_researcher = _require(raw_agents, "researcher", "agents")
-    researcher_count = _require(raw_researcher, "count", "agents.researcher")
-    if researcher_count < 1:
-        raise ConfigError(
-            f"agents.researcher.count must be >= 1, got {researcher_count}"
+    # Modules
+    modules_raw = _require(raw, "modules")
+    modules = [
+        ModuleConfig(
+            name=_require(m, "name", "modules[]"),
+            files=_require(m, "files", "modules[]"),
+            description=_require(m, "description", "modules[]"),
         )
-    researcher = ResearcherConfig(
-        model=_require(raw_researcher, "model", "agents.researcher"),
-        count=researcher_count,
-        model_flags=raw_researcher.get("model_flags", ""),
+        for m in modules_raw
+    ]
+
+    # Build
+    build_raw = _require(raw, "build")
+    build = BuildConfig(
+        command=_require(build_raw, "command", "build"),
+        binary=_require(build_raw, "binary", "build"),
     )
+
+    # Benchmarks
+    bench_raw = _require(raw, "benchmarks")
+    benchmarks = BenchmarkConfig(
+        small=_require(bench_raw, "small", "benchmarks"),
+        medium=bench_raw.get("medium", []),
+        large=bench_raw.get("large", []),
+        baseline_results=bench_raw.get("baseline_results"),
+    )
+
+    # Evaluation
+    eval_raw = _require(raw, "evaluation")
+    evaluation = EvaluationConfig(
+        metric=_require(eval_raw, "metric", "evaluation"),
+        progressive=eval_raw.get("progressive", True),
+        runs_per_instance=eval_raw.get("runs_per_instance", 5),
+        random_seeds=eval_raw.get("random_seeds", [42, 123, 456, 789, 1024]),
+    )
+
+    # Agents
+    agents_raw = _require(raw, "agents")
+    strat_raw = _require(agents_raw, "strategist", "agents")
+    res_raw = _require(agents_raw, "researchers", "agents")
+    count = _require(res_raw, "count", "agents.researchers")
+    if count < 1:
+        raise ConfigError("agents.researchers.count must be >= 1")
 
     agents = AgentsConfig(
-        strategist=strategist,
-        researcher=researcher,
-        tool=raw_agents.get("tool", "claude"),
+        tool=_require(agents_raw, "tool", "agents"),
+        strategist=StrategistConfig(model_flags=strat_raw.get("model_flags", "")),
+        researchers=ResearcherConfig(
+            count=count,
+            model_flags=res_raw.get("model_flags", ""),
+            max_iterations_per_assignment=res_raw.get("max_iterations_per_assignment", 20),
+        ),
     )
 
-    # ── timeouts ──────────────────────────────────────────────────────────────
-    raw_timeouts = _require(raw, "timeouts", "root")
+    # Timeouts
+    timeouts_raw = raw.get("timeouts", {})
     timeouts = TimeoutsConfig(
-        iteration=_require(raw_timeouts, "iteration", "timeouts"),
-        total=_require(raw_timeouts, "total", "timeouts"),
+        build=timeouts_raw.get("build", 30),
+        eval_per_instance=timeouts_raw.get("eval_per_instance", 30),
     )
 
-    # ── stopping_conditions ───────────────────────────────────────────────────
-    raw_stop = _require(raw, "stopping_conditions", "root")
-    stopping_conditions = StoppingConditions(
-        max_iterations=_require(raw_stop, "max_iterations", "stopping_conditions"),
-        target_score=raw_stop.get("target_score"),
-        max_hours=float(raw_stop.get("max_hours", 24.0)),
-        target_improvement=float(raw_stop.get("target_improvement", 0.0)),
-        stagnation_window=int(raw_stop.get("stagnation_window", 20)),
+    # Stopping conditions
+    stop_raw = raw.get("stopping_conditions", {})
+    stopping = StoppingConditions(
+        max_total_iterations=stop_raw.get("max_total_iterations", 500),
+        max_hours=stop_raw.get("max_hours", 24),
+        target_improvement=stop_raw.get("target_improvement", 0.5),
+        stagnation_window=stop_raw.get("stagnation_window", 50),
     )
 
     return AlgoForgeConfig(
@@ -244,5 +210,5 @@ def load_config(path: str | Path) -> AlgoForgeConfig:
         evaluation=evaluation,
         agents=agents,
         timeouts=timeouts,
-        stopping_conditions=stopping_conditions,
+        stopping_conditions=stopping,
     )

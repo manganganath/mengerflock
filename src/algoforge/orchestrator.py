@@ -64,7 +64,7 @@ def check_stopping_conditions(
 
 class Orchestrator:
     def __init__(self, project_dir: Path, config: AlgoForgeConfig):
-        self.project_dir = project_dir
+        self.project_dir = project_dir.resolve()
         self.config = config
         self.state_dir = project_dir / "state"
         self.start_time = time.time()
@@ -87,7 +87,7 @@ class Orchestrator:
             "tmux", "new-window", "-t", "algoforge",
             "-n", "strategist",
             "-c", str(self.project_dir),
-            f"{tool} {model_flags}"
+            f"{tool} {model_flags} --allowedTools 'Edit,Write,Bash,Read,Glob,Grep,WebSearch,WebFetch'"
         ], check=True)
 
         # Wait for claude to start, then send the prompt
@@ -111,16 +111,16 @@ class Orchestrator:
         if not wt_path.exists():
             create_worktree(self.project_dir, wt_path, branch)
 
-        # Create symlinks
+        # Create symlinks (use absolute paths)
         state_link = wt_path / "state"
         if not state_link.exists():
-            state_link.symlink_to(self.state_dir)
+            state_link.symlink_to(self.state_dir.resolve())
 
-        for name in ["eval.sh", "datasets"]:
+        for name in ["eval.sh", "datasets", "researcher.md"]:
             link = wt_path / name
             src = self.project_dir / name
             if src.exists() and not link.exists():
-                link.symlink_to(src)
+                link.symlink_to(src.resolve())
 
         tool = self.config.agents.tool
         model_flags = self.config.agents.researchers.model_flags
@@ -130,7 +130,7 @@ class Orchestrator:
             "tmux", "new-window", "-t", "algoforge",
             "-n", researcher_id,
             "-c", str(wt_path),
-            f"{tool} {model_flags}"
+            f"{tool} {model_flags} --allowedTools 'Edit,Write,Bash,Read,Glob,Grep,WebSearch,WebFetch'"
         ], check=True)
 
         # Wait then send prompt

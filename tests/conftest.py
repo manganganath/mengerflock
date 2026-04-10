@@ -12,54 +12,62 @@ MINIMAL_CONFIG: dict = {
     "project": {
         "name": "test-project",
         "mode": "evolve",
-        "seed_path": "seeds/",
+        "seed_path": "./seed/",
+        "language": "c",
     },
-    "modules": {
-        "entry_point": "algorithm.py",
-    },
+    "modules": [
+        {
+            "name": "module_a",
+            "files": ["src/a.c"],
+            "description": "Module A",
+        }
+    ],
     "build": {
-        "command": "python build.py",
-        "timeout": 60,
+        "command": "make",
+        "binary": "./test_bin",
     },
     "benchmarks": {
-        "command": "python benchmark.py",
-        "timeout": 120,
+        "small": ["bench/small1.tsp"],
+        "medium": [],
+        "large": [],
+        "baseline_results": "baselines/results.json",
     },
     "evaluation": {
-        "metric": "score",
-        "direction": "maximize",
+        "metric": "gap_to_optimal",
+        "progressive": True,
+        "runs_per_instance": 5,
+        "random_seeds": [42, 123, 456, 789, 1024],
     },
     "agents": {
-        "strategist": {
-            "model": "gpt-4o",
-        },
-        "researcher": {
-            "model": "gpt-4o-mini",
+        "tool": "claude",
+        "strategist": {"model_flags": "--model opus"},
+        "researchers": {
             "count": 2,
+            "model_flags": "--model sonnet",
+            "max_iterations_per_assignment": 20,
         },
     },
     "timeouts": {
-        "iteration": 300,
-        "total": 3600,
+        "build": 30,
+        "eval_per_instance": 30,
     },
     "stopping_conditions": {
-        "max_iterations": 50,
-        "target_score": None,
+        "max_total_iterations": 100,
+        "max_hours": 1,
+        "target_improvement": 0.5,
+        "stagnation_window": 20,
     },
 }
 
 
 @pytest.fixture
 def tmp_project(tmp_path: Path) -> tuple[Path, Path]:
-    """Create a minimal project directory with a valid config.yaml and seed dir.
-
-    Returns a (project_dir, config_path) tuple so both orchestrator tests
-    and config tests can destructure what they need.
-    """
-    seeds_dir = tmp_path / "seeds"
-    seeds_dir.mkdir()
-
+    """Create a minimal project directory with a valid config.yaml and seed dir."""
     config_path = tmp_path / "config.yaml"
     config_path.write_text(yaml.dump(MINIMAL_CONFIG))
+
+    (tmp_path / "seed").mkdir()
+    (tmp_path / "seed" / "src").mkdir(parents=True)
+    (tmp_path / "seed" / "src" / "a.c").write_text("int main() { return 0; }")
 
     return tmp_path, config_path
