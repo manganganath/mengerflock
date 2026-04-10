@@ -84,6 +84,8 @@ LOOP FOREVER:
 
    **Cross-pollinate ideas**: If r1 finds that speed matters more than move quality, tell r2 and r3 to also consider speed in their modules. Successful insights from one researcher should influence the others' directions.
 
+   **Incorporate wildcard discoveries**: When the wildcard (w1) logs a `keep`, pay special attention — it found something without any guidance. Read its hypothesis and description carefully. If it discovered an improvement area that regular researchers aren't covering (e.g., configuration parameters, unused code paths, architectural changes), immediately update the most relevant researcher's assignment with: what the wildcard found, why it worked, and specific follow-up ideas to explore it further within that researcher's module.
+
    **Stagnation escalation**: If a researcher has 3+ consecutive crashes or discards:
    - First: reframe the objective (e.g., from "improve solution quality" to "reduce per-trial wall-clock time so more trials fit in the time budget")
    - Second: widen their file scope to include related files they might need
