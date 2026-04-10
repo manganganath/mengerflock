@@ -241,17 +241,7 @@ Researchers evaluate mutations with a cost-aware, progressive approach:
 
 ### Dataset Split
 
-AlgoForge uses a train/validation/holdout split to ensure improvements generalize:
-
-```mermaid
-graph LR
-    G[Strategist generates<br/>synthetic instances] --> T[Train set<br/>researchers iterate]
-    G --> V[Validation set<br/>strategist composes]
-    H[Holdout<br/>established benchmarks] --> R[Final report only<br/>never seen during development]
-
-    style H fill:#f96,stroke:#333
-    style R fill:#f96,stroke:#333
-```
+AlgoForge uses a train/validation/holdout split to ensure improvements generalize rather than overfitting to specific benchmark instances:
 
 | Dataset | Created by | Used by | Purpose |
 |---|---|---|---|
