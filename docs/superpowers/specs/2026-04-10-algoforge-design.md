@@ -20,8 +20,11 @@ Two agent types. No more.
 
 ### Strategist (1 instance)
 
-The research PI. Responsibilities:
+The research PI. Has **web search capability** to research unfamiliar domains autonomously — read papers, find known weaknesses in target algorithms, look up benchmark baselines, and discover alternative approaches. This makes the system domain-agnostic without requiring user-provided domain knowledge.
 
+Responsibilities:
+
+- **Research** — web search to understand the target algorithm, its domain, known limitations, and competing approaches. Can also discover and download seed code if not provided.
 - **Initialize** — analyze seed codebase, decompose into modules, run baseline benchmarks
 - **Assign** — assign modules to researchers based on priority scores
 - **Compose** — periodically merge best module branches, evaluate the combined build
@@ -67,7 +70,9 @@ Build failures count as iterations. The researcher maintains a local experiment 
 
 ### Evolve Mode
 
-Seed code exists. The strategist decomposes it into modules and researchers improve them. Used for the TSP/LKH-2 test case.
+Seed code exists or is discovered. The strategist decomposes it into modules and researchers improve them. Used for the TSP/LKH-2 test case.
+
+If `seed_path` is not provided in the config, the strategist uses web search to find the best available open-source implementation for the problem domain, downloads it, and uses it as the seed. For example, given a TSP project with no seed, the strategist would find LKH-2's source code, download it, verify it compiles, and proceed.
 
 ### Generate Mode
 
@@ -207,10 +212,19 @@ The framework applies edits by: (1) validating the old text exists in the file, 
 ### Strategist Prompt Structure
 
 1. **System prompt** — role as research PI, responsibilities, decision framework
-2. **Codebase summary** — module list with file sizes, key functions, and inter-module dependencies (not full source)
-3. **Full results.tsv** — complete experiment history across all researchers
-4. **Current state** — which researcher is on which module, iteration counts, latest composition result
-5. **Decision request** — "compose now?", "reassign researchers?", "switch to cross-pollination?"
+2. **Domain research** — findings from web search during initialization (papers, known weaknesses, competing approaches). Cached and reused across calls.
+3. **Codebase summary** — module list with file sizes, key functions, and inter-module dependencies (not full source)
+4. **Full results.tsv** — complete experiment history across all researchers
+5. **Current state** — which researcher is on which module, iteration counts, latest composition result
+6. **Decision request** — "compose now?", "reassign researchers?", "switch to cross-pollination?"
+
+### Strategist Tools
+
+The strategist has access to:
+- **Web search + download** — search the web for papers, techniques, benchmark results, domain knowledge, and seed code
+- **File read** — read source files in the repository
+- **Git operations** — branch, merge, tag (via git_ops.py)
+- **Eval trigger** — kick off a composition build + benchmark run
 
 ### Context Management
 
@@ -369,6 +383,33 @@ agents:
 
 Model swapping is a config string change. No code changes required.
 
+### Prompts
+
+AlgoForge ships with **domain-agnostic default prompts** for both strategist and researcher. These work for any target codebase — the domain knowledge comes from:
+- The strategist's web search (papers, techniques, known results)
+- The seed codebase itself (the LLM reads the code)
+- The config (metric definition, benchmarks)
+- Accumulated experiment history
+
+Users can optionally provide a `domain_context` file with additional hints, but it is not required.
+
+```
+algoforge/
+├── prompts/
+│   ├── strategist.md      # default strategist prompt (domain-agnostic)
+│   └── researcher.md      # default researcher prompt (domain-agnostic)
+```
+
+```yaml
+agents:
+  strategist:
+    model: "google/gemini-2.5-pro"
+    domain_context: "optional/tsp_context.md"   # optional, not required
+  researchers:
+    model: "google/gemini-2.5-flash"
+    domain_context: "optional/tsp_context.md"   # optional, not required
+```
+
 ---
 
 ## Project Configuration
@@ -377,7 +418,7 @@ Model swapping is a config string change. No code changes required.
 project:
   name: "tsp-heuristic"
   mode: "evolve"                        # evolve | generate
-  seed_path: "./seeds/lkh2/"
+  seed_path: "./seeds/lkh2/"            # optional — strategist can discover and download if omitted
   language: "c"
 
 modules:                                # strategist can refine these
