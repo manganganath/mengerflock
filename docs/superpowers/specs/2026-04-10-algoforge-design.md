@@ -270,30 +270,53 @@ timestamp	action	details
 
 ## Evaluation & Metrics
 
+### Dataset Split
+
+AlgoForge uses a train/validation/holdout split analogous to machine learning, to ensure discovered improvements genuinely generalize rather than overfitting to specific benchmark instances.
+
+| Role | Source | Used by | Purpose |
+|---|---|---|---|
+| **Train** | Synthetic / generated instances | Researchers | Iterate, keep/discard decisions |
+| **Validation** | Synthetic / generated (separate set) | Strategist | Composition evaluation, conflict detection |
+| **Holdout** | Established benchmarks (e.g., TSPLIB) | Report phase only | Final evaluation — never seen during development |
+
+**Why this order:** Established benchmarks like TSPLIB are the accepted standard for comparing algorithms. If researchers train on them, reported results are not credible. Synthetic instances can be generated at any size, distribution, and quantity — providing unlimited training data while preserving the holdout for genuine evaluation.
+
+Synthetic instances should cover diverse structures:
+- Uniform random points
+- Clustered points
+- Grid-based layouts
+- Mixed distributions
+- Multiple size ranges (small, medium, large)
+
+The holdout is used **once**, in the final report, to measure true generalization. The strategist must never expose holdout instances to researchers or use them for composition decisions.
+
 ### Metric Definition
 
 Primary metric: **gap_to_optimal** = `(tour_length - optimal) / optimal`
 
-Where `optimal` is the known best solution for each TSPLIB instance.
+For synthetic instances where the optimal is unknown, use the **gap_to_best_known** (best result from any seed/run) as a proxy, or compute the Held-Karp lower bound.
 
 ### Aggregation
 
 - **Per-instance**: run the solver `runs_per_instance` times (default 5) using **fixed random seeds** for reproducibility. Take the **mean** of all runs as the instance score.
 - **Per-tier**: compute the **geometric mean** of per-instance gaps across all instances in the tier. Geometric mean prevents a single outlier instance from dominating.
-- **Overall**: the primary comparison metric is the geometric mean gap on the **small** tier (for researcher keep/discard) or **all tiers** (for strategist composition evaluation).
+- **Overall**: the primary comparison metric is the geometric mean gap on the training set (for researcher keep/discard) or validation set (for strategist composition evaluation).
 
 ### Keep/Discard Decision
 
 A researcher keeps a mutation if:
-- The geometric mean gap on the small tier is **strictly lower** than the current module best
+- The geometric mean gap on the training set is **strictly lower** than the current module best
 - The mutation does not cause any instance to regress by more than 2x its current gap (prevents trading broad improvement for catastrophic regression on one instance)
+- If the training set gap is already 0% (saturated), the researcher must evaluate on larger training instances before deciding
 
 ### Progressive Evaluation
 
-1. **Small tier first** — every mutation is evaluated here. Fast feedback (~seconds per instance).
-2. **Promotion to medium** — if a mutation survives 3 consecutive keep decisions on small, it is also evaluated on medium tier.
-3. **Promotion to large** — only during strategist composition. The composed build is evaluated on all tiers.
+1. **Small training instances first** — every mutation is evaluated here. Fast feedback (~seconds per instance).
+2. **Promotion to medium** — if small tier is saturated (0% gap) or a mutation survives 3 consecutive keeps, also evaluate on medium training instances.
+3. **Promotion to large** — only during strategist composition. The composed build is evaluated on validation set.
 4. **No demotion** — once promoted, the researcher continues evaluating on all promoted tiers.
+5. **1-seed screening** — for large instances, screen with 1 seed first. Only run full 5-seed evaluation for promising changes.
 
 ---
 
@@ -372,11 +395,16 @@ build:
   command: "make -j4"                   # incremental build. Use "make clean && make -j4" if Makefile deps are unreliable
   binary: "./LKH"                       # relative to worktree root
 
-benchmarks:
-  small: ["benchmarks/tsplib/eil51.tsp", "benchmarks/tsplib/berlin52.tsp"]
-  medium: ["benchmarks/tsplib/rat783.tsp", "benchmarks/tsplib/pr1002.tsp"]
-  large: ["benchmarks/tsplib/fl1577.tsp", "benchmarks/tsplib/d2103.tsp"]
-  baseline_results: "baselines/lkh2_results.json"
+datasets:
+  train:                                    # researchers iterate on these
+    small: ["datasets/train/small_*.tsp"]
+    medium: ["datasets/train/med_*.tsp"]
+    large: ["datasets/train/large_*.tsp"]
+  validation:                               # strategist composes on these
+    instances: ["datasets/validation/*.tsp"]
+  holdout:                                  # final report only — never seen during development
+    instances: ["datasets/holdout/*.tsp"]   # e.g., TSPLIB instances
+  baseline_results: "baselines/results.json"
 
 evaluation:
   metric: "gap_to_optimal"              # (tour_length - optimal) / optimal

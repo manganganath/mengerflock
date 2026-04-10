@@ -84,9 +84,10 @@ Tested extreme parameters (9/10 momentum), found small instances insensitive, re
 
 ## Fixes Needed for Iteration 3
 
-1. **Auto-promote to larger tiers** when small tier gap = 0%
-2. **1-seed screening** before full 5-seed evaluation on large instances
-3. **Faster strategist Phase 1** — quick baseline, iterate during Phase 2
-4. **Composition-aware evaluation** — test whether module improvements conflict before merging
-5. **Symlink state/ into worktrees** instead of relying on PROJECT_ROOT discovery
-6. **r3 needs different strategy** — perturbation module may need a fundamentally different approach (reduce per-trial cost rather than add post-processing)
+1. **Train/validation/holdout dataset split** — train on synthetic instances, validate on separate synthetic set, holdout TSPLIB for final report only. Prevents overfitting to specific benchmark instances. Generate synthetic instances at various sizes and distributions (uniform, clustered, grid, mixed).
+2. **Auto-promote to larger tiers** when small tier gap = 0%
+3. **1-seed screening** before full 5-seed evaluation on large instances
+4. **Faster strategist Phase 1** — quick baseline, iterate during Phase 2
+5. **Composition-aware evaluation** — test whether module improvements conflict before merging (speed vs quality tradeoff)
+6. **Symlink state/ into worktrees** instead of relying on PROJECT_ROOT discovery
+7. **r3 needs different strategy** — perturbation module may need a fundamentally different approach (reduce per-trial cost rather than add post-processing)
