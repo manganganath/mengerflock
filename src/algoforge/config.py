@@ -31,6 +31,7 @@ class ProjectConfig:
 @dataclasses.dataclass
 class ModuleConfig:
     entry_point: str
+    name: str = ""
 
 
 @dataclasses.dataclass
@@ -54,18 +55,26 @@ class EvaluationConfig:
 @dataclasses.dataclass
 class StrategistConfig:
     model: str
+    model_flags: str = ""
 
 
 @dataclasses.dataclass
 class ResearcherConfig:
     model: str
     count: int
+    model_flags: str = ""
 
 
 @dataclasses.dataclass
 class AgentsConfig:
     strategist: StrategistConfig
     researcher: ResearcherConfig
+    tool: str = "claude"
+
+    @property
+    def researchers(self) -> "ResearcherConfig":
+        """Alias for researcher (plural form used by orchestrator)."""
+        return self.researcher
 
 
 @dataclasses.dataclass
@@ -78,12 +87,20 @@ class TimeoutsConfig:
 class StoppingConditions:
     max_iterations: int
     target_score: float | None = None
+    max_hours: float = 24.0
+    target_improvement: float = 0.0
+    stagnation_window: int = 20
+
+    @property
+    def max_total_iterations(self) -> int:
+        """Alias for max_iterations (used by orchestrator)."""
+        return self.max_iterations
 
 
 @dataclasses.dataclass
 class AlgoForgeConfig:
     project: ProjectConfig
-    modules: ModuleConfig
+    modules: list[ModuleConfig]
     build: BuildConfig
     benchmarks: BenchmarkConfig
     evaluation: EvaluationConfig
@@ -139,8 +156,20 @@ def load_config(path: str | Path) -> AlgoForgeConfig:
 
     # ── modules ───────────────────────────────────────────────────────────────
     raw_modules = _require(raw, "modules", "root")
-    entry_point = _require(raw_modules, "entry_point", "modules")
-    modules = ModuleConfig(entry_point=entry_point)
+    if isinstance(raw_modules, list):
+        # New list-of-modules format: [{name: mod_a, entry_point: ...}, ...]
+        modules = [
+            ModuleConfig(
+                entry_point=_require(m, "entry_point", f"modules[{i}]"),
+                name=m.get("name", f"module_{i}"),
+            )
+            for i, m in enumerate(raw_modules)
+        ]
+    else:
+        # Legacy single-module format: {entry_point: ...}
+        entry_point = _require(raw_modules, "entry_point", "modules")
+        module_name = raw_modules.get("name", "default")
+        modules = [ModuleConfig(entry_point=entry_point, name=module_name)]
 
     # ── build ─────────────────────────────────────────────────────────────────
     raw_build = _require(raw, "build", "root")
@@ -169,6 +198,7 @@ def load_config(path: str | Path) -> AlgoForgeConfig:
     raw_strategist = _require(raw_agents, "strategist", "agents")
     strategist = StrategistConfig(
         model=_require(raw_strategist, "model", "agents.strategist"),
+        model_flags=raw_strategist.get("model_flags", ""),
     )
 
     raw_researcher = _require(raw_agents, "researcher", "agents")
@@ -180,9 +210,14 @@ def load_config(path: str | Path) -> AlgoForgeConfig:
     researcher = ResearcherConfig(
         model=_require(raw_researcher, "model", "agents.researcher"),
         count=researcher_count,
+        model_flags=raw_researcher.get("model_flags", ""),
     )
 
-    agents = AgentsConfig(strategist=strategist, researcher=researcher)
+    agents = AgentsConfig(
+        strategist=strategist,
+        researcher=researcher,
+        tool=raw_agents.get("tool", "claude"),
+    )
 
     # ── timeouts ──────────────────────────────────────────────────────────────
     raw_timeouts = _require(raw, "timeouts", "root")
@@ -196,6 +231,9 @@ def load_config(path: str | Path) -> AlgoForgeConfig:
     stopping_conditions = StoppingConditions(
         max_iterations=_require(raw_stop, "max_iterations", "stopping_conditions"),
         target_score=raw_stop.get("target_score"),
+        max_hours=float(raw_stop.get("max_hours", 24.0)),
+        target_improvement=float(raw_stop.get("target_improvement", 0.0)),
+        stagnation_window=int(raw_stop.get("stagnation_window", 20)),
     )
 
     return AlgoForgeConfig(

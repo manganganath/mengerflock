@@ -50,12 +50,16 @@ MINIMAL_CONFIG: dict = {
 
 
 @pytest.fixture
-def tmp_project(tmp_path: Path) -> Path:
-    """Create a minimal project directory with a valid config.yaml and seed dir."""
+def tmp_project(tmp_path: Path) -> tuple[Path, Path]:
+    """Create a minimal project directory with a valid config.yaml and seed dir.
+
+    Returns a (project_dir, config_path) tuple so both orchestrator tests
+    and config tests can destructure what they need.
+    """
     seeds_dir = tmp_path / "seeds"
     seeds_dir.mkdir()
 
     config_path = tmp_path / "config.yaml"
     config_path.write_text(yaml.dump(MINIMAL_CONFIG))
 
-    return tmp_path
+    return tmp_path, config_path

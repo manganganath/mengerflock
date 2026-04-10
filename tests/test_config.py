@@ -63,9 +63,10 @@ def _base_config() -> dict:
 # Tests
 # ---------------------------------------------------------------------------
 
-def test_load_valid_config(tmp_project: Path) -> None:
+def test_load_valid_config(tmp_project: tuple) -> None:
     """A well-formed config.yaml should load without errors."""
-    cfg = load_config(tmp_project / "config.yaml")
+    tmp_path, config_path = tmp_project
+    cfg = load_config(config_path)
 
     assert isinstance(cfg, AlgoForgeConfig)
     assert cfg.project.name == "test-project"
