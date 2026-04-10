@@ -64,18 +64,25 @@ LOOP FOREVER:
    - 10 minutes pass with no composition
    - You're about to reassign a researcher
 
-   To compose:
-   - Create a composition branch from main
-   - Merge each module's best branch: `git merge module/<name>`
+   To compose — **incrementally, one module at a time**:
+   - Start from main
+   - Merge module branches one at a time: merge module A → build → evaluate. Then merge module B → build → evaluate. And so on.
+   - If adding a module regresses the composition, try that module alone (without the others) to understand if it conflicts. Some improvements conflict — e.g., one module speeds up trials while another adds preprocessing that cancels the speedup. Log the conflict.
+   - Keep the best combination. Not all modules need to be in the final composition.
    - If merge conflicts: resolve them yourself. Only if you truly cannot resolve, switch that researcher to cross-pollination mode.
-   - Build and evaluate the composed code against ALL benchmark tiers
    - If better than main: `git checkout main && git merge composition/<id> --ff-only` and tag it
-   - Log the result to `state/strategist_log.tsv`
+   - Log the result and any conflicts to `state/strategist_log.tsv`
 
 3. **Reprioritize**: After each composition, reassess:
    - Which modules have the most improvement potential?
    - Which researchers are stuck? Reassign them.
    - Are there module coupling issues? Adjust boundaries.
+
+   **Stagnation rule**: If a researcher has 3+ consecutive crashes or discards:
+   - First: reframe the objective (e.g., from "improve solution quality" to "reduce per-trial wall-clock time so more trials fit in the time budget")
+   - Second: widen their file scope to include related files they might need
+   - Third: switch them to cross-pollination mode (full codebase, no module restriction)
+   - Last resort: reassign to a different module entirely
 
    Update `state/assignments/r<id>.yaml` to reassign researchers.
 
