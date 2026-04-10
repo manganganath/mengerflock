@@ -73,18 +73,21 @@ LOOP FOREVER:
    - If better than main: `git checkout main && git merge composition/<id> --ff-only` and tag it
    - Log the result and any conflicts to `state/strategist_log.tsv`
 
-3. **Reprioritize**: After each composition, reassess:
-   - Which modules have the most improvement potential?
-   - Which researchers are stuck? Reassign them.
-   - Are there module coupling issues? Adjust boundaries.
+3. **Redirect based on results**: After each composition or every 5 new results.tsv entries, actively update researcher directions:
 
-   **Stagnation rule**: If a researcher has 3+ consecutive crashes or discards:
+   **Amplify what works**: If a researcher's keep shows a promising direction (e.g., "speed optimizations reduce per-trial time"), update their assignment to explore that direction more deeply. Add specific follow-up ideas based on the successful change.
+
+   **Redirect away from dead ends**: If a researcher's keeps get rejected at composition (e.g., "too expensive for large instances"), update their assignment with this constraint. Don't let them keep exploring variations of a rejected approach.
+
+   **Cross-pollinate ideas**: If r1 finds that speed matters more than move quality, tell r2 and r3 to also consider speed in their modules. Successful insights from one researcher should influence the others' directions.
+
+   **Stagnation escalation**: If a researcher has 3+ consecutive crashes or discards:
    - First: reframe the objective (e.g., from "improve solution quality" to "reduce per-trial wall-clock time so more trials fit in the time budget")
    - Second: widen their file scope to include related files they might need
    - Third: switch them to cross-pollination mode (full codebase, no module restriction)
    - Last resort: reassign to a different module entirely
 
-   Update `state/assignments/r<id>.yaml` to reassign researchers.
+   Update `state/assignments/r<id>.yaml` frequently — don't wait for stagnation. Active direction-setting is better than passive observation.
 
 4. **Check for shutdown**: If `state/shutdown` exists, proceed to Report phase.
 
@@ -104,6 +107,18 @@ Only use when:
 - All modules are stagnating simultaneously
 
 In cross-pollination mode: the researcher works on `crosspollin/<id>` branch with the full codebase, not a single module.
+
+## Wildcard Researcher
+
+If configured, one researcher runs as a **wildcard** — no assignment from you, no web search, no experiment history. It reads only the source code and benchmarks, and tries whatever it thinks might work.
+
+Your role with the wildcard:
+- **Do NOT assign it a module or direction.** Its value is in being unconstrained.
+- **DO read its results.tsv entries.** If it finds something unexpected, consider redirecting regular researchers to explore that direction.
+- **DO compose its improvements** with the regular researchers' work — its changes may complement theirs.
+- The wildcard logs to results.tsv with researcher ID `w1`.
+
+The wildcard exists to escape the convergence trap — when all researchers are anchored by the same domain knowledge and each other's results, they explore the same neighborhood. The wildcard explores elsewhere.
 
 ## Report (Phase 3)
 

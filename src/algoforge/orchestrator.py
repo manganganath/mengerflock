@@ -196,4 +196,50 @@ class Orchestrator:
             module = self.config.modules[i % len(self.config.modules)]
             self.launch_researcher(rid, module.name)
 
+        # Launch wildcard if configured
+        wildcard = getattr(self.config.agents, 'wildcard', None)
+        if wildcard:
+            self.launch_wildcard()
+
         self.monitor()
+
+    def launch_wildcard(self) -> None:
+        wt_path = self.project_dir / ".worktrees" / "w1"
+        branch = "wildcard/w1"
+
+        create_branch(self.project_dir, branch)
+        if not wt_path.exists():
+            create_worktree(self.project_dir, wt_path, branch)
+
+        # Create symlinks (use absolute paths)
+        state_link = wt_path / "state"
+        if not state_link.exists():
+            state_link.symlink_to(self.state_dir.resolve())
+
+        for name in ["eval.sh", "datasets", "wildcard.md"]:
+            link = wt_path / name
+            src = self.project_dir / name
+            if src.exists() and not link.exists():
+                link.symlink_to(src.resolve())
+
+        tool = self.config.agents.tool
+        wildcard_cfg = self.config.agents.wildcard
+        model_flags = wildcard_cfg.model_flags
+
+        subprocess.run([
+            "tmux", "new-window", "-t", "algoforge",
+            "-n", "w1",
+            "-c", str(wt_path),
+            f"{tool} {model_flags} --allowedTools 'Edit,Write,Bash,Read,Glob,Grep'"
+        ], check=True)
+
+        time.sleep(3)
+        prompt = (
+            "Read wildcard.md and follow its instructions. "
+            "Your ID is w1. "
+            "State, datasets, and eval.sh are in your working directory."
+        )
+        subprocess.run([
+            "tmux", "send-keys", "-t", "algoforge:w1",
+            prompt, "Enter"
+        ], check=True)

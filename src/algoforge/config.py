@@ -73,10 +73,16 @@ class ResearcherConfig:
 
 
 @dataclasses.dataclass
+class WildcardConfig:
+    model_flags: str = ""
+
+
+@dataclasses.dataclass
 class AgentsConfig:
     tool: str
     strategist: StrategistConfig
     researchers: ResearcherConfig
+    wildcard: Optional[WildcardConfig] = None
 
 
 @dataclasses.dataclass
@@ -176,6 +182,12 @@ def load_config(path: str | Path) -> AlgoForgeConfig:
     if count < 1:
         raise ConfigError("agents.researchers.count must be >= 1")
 
+    # Wildcard (optional)
+    wildcard = None
+    wildcard_raw = agents_raw.get("wildcard")
+    if wildcard_raw:
+        wildcard = WildcardConfig(model_flags=wildcard_raw.get("model_flags", ""))
+
     agents = AgentsConfig(
         tool=_require(agents_raw, "tool", "agents"),
         strategist=StrategistConfig(model_flags=strat_raw.get("model_flags", "")),
@@ -184,6 +196,7 @@ def load_config(path: str | Path) -> AlgoForgeConfig:
             model_flags=res_raw.get("model_flags", ""),
             max_iterations_per_assignment=res_raw.get("max_iterations_per_assignment", 20),
         ),
+        wildcard=wildcard,
     )
 
     # Timeouts
