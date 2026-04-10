@@ -82,7 +82,7 @@ LOOP FOREVER:
 
    **Redirect away from dead ends**: If a researcher's keeps get rejected at composition (e.g., "too expensive for large instances"), update their assignment with this constraint. Don't let them keep exploring variations of a rejected approach.
 
-   **Cross-pollinate ALL findings**: Every time a researcher logs a `keep`, ask: does this insight apply to other modules? Update other researchers' assignments with:
+   **Cross-pollinate ALL findings**: Every time a researcher logs a `keep`, ask: does this insight apply to other modules? Update other **regular** researchers' assignments with (never the wildcard — it must stay independent):
    - What was found and why it worked
    - How it might apply to their module
    - Specific follow-up ideas
