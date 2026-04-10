@@ -36,28 +36,133 @@ Any codebase where you can compile, run against benchmarks, and get a number bac
 
 The domain-agnostic design means AlgoForge doesn't need to be pre-configured for any specific problem type. The strategist researches the domain autonomously via web search.
 
-## Quick Start
+## User Guide
+
+### Prerequisites
+
+- Python 3.11+
+- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) (or another coding agent with a CLI)
+- tmux (`brew install tmux`)
+- Git
+
+### Step 1: Install AlgoForge
 
 ```bash
-# Initialize a project with seed code and config
-algoforge init --seed ./path/to/seed --config config.yaml
+git clone https://github.com/manganganath/AlgoForge.git
+cd AlgoForge
+pip install -e .
+```
 
-# Run the experiment (launches tmux session with all agents)
+### Step 2: Prepare Your Project
+
+Create a project directory with:
+- Your seed codebase (the algorithm you want to improve)
+- Benchmark instances (holdout set for final evaluation)
+- A `config.yaml` describing the project
+
+```
+my-project/
+├── config.yaml
+├── seed/               # your algorithm's source code
+├── datasets/
+│   └── holdout/        # established benchmark instances
+└── eval.sh             # script that runs binary on one instance, outputs a number
+```
+
+### Step 3: Write config.yaml
+
+```yaml
+project:
+  name: "my-algorithm"
+  mode: "evolve"            # evolve (from seed) or generate (from scratch)
+  seed_path: "./seed/"
+  language: "c"             # language of the seed codebase
+
+modules:                    # the strategist can refine these after analyzing the code
+  - name: "core_logic"
+    files: ["src/core.c"]
+    description: "Main algorithm logic"
+  - name: "heuristics"
+    files: ["src/heuristic.c"]
+    description: "Heuristic evaluation functions"
+
+build:
+  command: "make -j4"
+  binary: "./solver"
+
+benchmarks:
+  small: ["datasets/holdout/small_*.txt"]
+  medium: ["datasets/holdout/med_*.txt"]
+  large: ["datasets/holdout/large_*.txt"]
+
+evaluation:
+  metric: "gap_to_optimal"
+  runs_per_instance: 5
+  random_seeds: [42, 123, 456, 789, 1024]
+
+agents:
+  tool: "claude"                        # coding tool CLI command
+  strategist:
+    model_flags: "--model opus"         # stronger model for research PI
+  researchers:
+    count: 3                            # number of parallel researchers
+    model_flags: "--model sonnet"       # faster model for iteration
+    max_iterations_per_assignment: 20
+
+stopping_conditions:
+  max_total_iterations: 500
+  max_hours: 24
+  stagnation_window: 50
+```
+
+### Step 4: Initialize and Run
+
+```bash
+cd my-project
+
+# Initialize (creates state directory, git branches)
+algoforge init --config config.yaml
+
+# Run (launches tmux session with strategist + N researchers)
 algoforge run config.yaml
+```
 
-# Watch the agents work
+### Step 5: Monitor
+
+```bash
+# Attach to the tmux session to watch agents work
 tmux attach -t algoforge
-# Ctrl+B then 1-4 to switch windows, Ctrl+B d to detach
 
-# Monitor progress from another terminal
+# Switch between windows:
+#   Ctrl+B then 1  → strategist
+#   Ctrl+B then 2  → researcher r1
+#   Ctrl+B then 3  → researcher r2
+#   Ctrl+B then n  → next window
+#   Ctrl+B then d  → detach (agents keep running)
+
+# Or check progress from any terminal
 algoforge status
+```
 
-# Gracefully stop (finishes current iterations, generates report)
+### Step 6: Stop and Report
+
+```bash
+# Graceful stop — finishes current iterations, strategist writes report
 algoforge stop
 
-# Generate report from completed run
+# Or generate report from a completed/stopped run
 algoforge report
 ```
+
+The strategist writes a comprehensive report to `report/report.md` including what was tried, what worked, benchmark comparisons, and a description of the evolved algorithm.
+
+### Tips
+
+- **Start small.** Use 2-3 researchers and small benchmarks first. Scale up once you see the loop working.
+- **Let it run overnight.** Each researcher can do ~10-12 experiments per hour. An overnight run gives you 80-100 experiments per researcher.
+- **Check `state/results.tsv`** for a quick view of all experiments across all researchers.
+- **The strategist is the bottleneck.** It needs to compose, evaluate, and reassign. If researchers are idle, check the strategist window.
+- **Seed code matters.** Start from the best available implementation. The agents evolve from there — they don't invent from scratch (in evolve mode).
 
 ## How It Runs
 
