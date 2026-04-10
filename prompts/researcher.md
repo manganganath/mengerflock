@@ -44,10 +44,16 @@ LOOP FOREVER:
 
 5. **Evaluate**: Run the binary against each small-tier benchmark instance in `datasets/`. Use `eval.sh` or run the binary directly. Record tour lengths and compute gap_to_optimal using `datasets/optimal.json`.
 
-   For large instances (>1000 cities): screen with 1 seed first. If the result is worse than baseline, discard immediately without running all 5 seeds. Only run full 5-seed evaluation for changes that pass the 1-seed screen.
+   **Large instance screening (MANDATORY for instances >1000 cities):**
+   1. Run with seed 42 only
+   2. If the result is worse than your current best → discard immediately, do NOT run remaining seeds
+   3. Only if seed 42 is equal or better → run the remaining 4 seeds
+   This saves 80% of eval time on bad mutations.
 
 6. **Compare**:
    - Calculate the geometric mean gap across instances.
+   - **Measure per-trial time**: before and after your change, note how long one benchmark run takes. If your change makes trials more than 10% slower on large instances, it will likely be rejected at composition even if gap improves. Prefer changes that are speed-neutral or faster.
+   - When logging to results.tsv, include timing info in the description (e.g., "d2103 gap 0.05%→0.03%, trial time 12s→11s").
    - If **strictly better** than your current best AND no single instance regressed by more than 2x → **keep**.
    - Otherwise → **discard**.
    - If the training set gap is already 0% on small instances (saturated), skip small tier and evaluate on medium/large training instances instead.
