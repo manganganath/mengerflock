@@ -1,10 +1,10 @@
 # AlgoForge
 
-Hierarchical multi-agent system for automated algorithm discovery and evolution.
+A hierarchical multi-agent system that evolves algorithms through autonomous experimentation.
 
-AlgoForge coordinates multiple coding agent sessions — a strategist and N parallel researchers — to evolve codebases toward better performance on defined benchmarks. It uses existing coding agents (Claude Code, Codex, etc.) as the intelligence layer and provides a thin orchestration layer to coordinate them.
+Give AlgoForge a codebase, a build step, and a benchmark — it will coordinate a team of AI coding agents to systematically improve the code's performance. The strategist researches the domain, decomposes the problem, and directs parallel researchers who each evolve a piece of the codebase in a tight loop: hypothesize, implement, build, evaluate, keep or revert.
 
-## How It Works
+## Architecture
 
 ```
                     Orchestrator
@@ -16,35 +16,42 @@ AlgoForge coordinates multiple coding agent sessions — a strategist and N para
       reassign, report)
 ```
 
-1. The **strategist** analyzes the target codebase, researches the domain via web search, decomposes the code into modules, and assigns work
-2. **Researchers** run in parallel, each evolving their assigned module in a tight loop: hypothesize, implement, build, evaluate, keep or revert
-3. The **strategist** periodically composes the best modules, evaluates the combined result, and reassigns researchers based on evidence
-4. When done, the strategist produces a report documenting what was tried, what worked, and why
+The orchestrator is a thin Python layer. The real work happens in the coding agents (Claude Code, Codex, etc.) — each pointed at a markdown instruction file, exactly like giving a developer a spec and letting them run.
 
-## Key Design Decisions
+**Strategist** — the research PI. Analyzes the codebase, researches the domain via web search, decomposes the code into modules, assigns work, periodically composes the best modules into a combined build, reassigns researchers based on evidence, and writes the final report.
 
-- **Agents are coding tool sessions** pointed at markdown instruction files — not custom LLM infrastructure
-- **Git worktrees** provide filesystem isolation for parallel researchers
-- **Filesystem-based communication** via a shared `state/` directory (results.tsv, assignments)
-- **Domain-agnostic** — works with any codebase in any language
-- **The strategist has web search** to autonomously research unfamiliar domains
+**Researchers** — N parallel workers. Each runs autonomously in its own git worktree, evolving its assigned module. The loop: read the code, form a hypothesis, edit, commit, build, benchmark, keep or revert. Indefinitely, until stopped.
+
+## What Can AlgoForge Evolve?
+
+Any codebase where you can compile, run against benchmarks, and get a number back. The requirements are simple: code + build step + measurable metric.
+
+| Domain | Examples |
+|---|---|
+| **Combinatorial Optimization** | TSP heuristics (first test case — beating LKH-2), vehicle routing, graph coloring, bin packing, scheduling |
+| **Search & Solvers** | SAT solvers, constraint satisfaction, branch-and-bound, local search frameworks |
+| **Numerical Computing** | Matrix multiplication kernels, sorting algorithms, compression, signal processing |
+| **ML Training** | Neural network training loops, optimizer implementations, data augmentation |
+| **Compilers** | Optimization passes, code generation heuristics, register allocation |
+
+The domain-agnostic design means AlgoForge doesn't need to be pre-configured for any specific problem type. The strategist researches the domain autonomously via web search.
 
 ## Quick Start
 
 ```bash
-# Initialize a project with seed code
+# Initialize a project
 algoforge init --seed ./path/to/seed --config config.yaml
 
 # Run the experiment
 algoforge run config.yaml
 
-# Check progress
+# Monitor progress
 algoforge status
 
-# Gracefully stop
+# Gracefully stop (finishes current iterations, then reports)
 algoforge stop
 
-# Generate report
+# Generate report from completed run
 algoforge report
 ```
 
@@ -53,7 +60,7 @@ algoforge report
 ```yaml
 project:
   name: "my-algorithm"
-  mode: "evolve"          # evolve (from seed) or generate (from scratch)
+  mode: "evolve"            # evolve (from seed) or generate (from scratch)
   seed_path: "./seed/"
   language: "c"
 
@@ -91,6 +98,19 @@ stopping_conditions:
   stagnation_window: 50
 ```
 
+## Evolution Strategy
+
+**Primary: Decomposed Module Evolution** — the strategist splits the codebase into modules. Each researcher evolves one module on a dedicated git branch. The strategist periodically merges the best version of each module into a combined build and evaluates the whole. This gives natural parallelism without merge conflicts.
+
+**Fallback: Cross-Pollination** — when module composition fails due to tight coupling, researchers fork the full codebase and evolve holistically. This is a last resort, triggered only after the strategist fails to resolve merge conflicts.
+
+## Design Principles
+
+- **Agents are coding tool sessions**, not custom LLM infrastructure. AlgoForge doesn't make API calls — it launches Claude Code / Codex sessions pointed at instruction files.
+- **Git is the state manager.** Worktrees for isolation, branches for versioning, tags for milestones.
+- **Filesystem for communication.** Agents read/write a shared `state/` directory. No queues, no IPC.
+- **The strategist has web search.** It can autonomously research unfamiliar domains, find papers, and discover seed code.
+
 ## Project Structure
 
 ```
@@ -106,51 +126,6 @@ algoforge/
 │   ├── strategist.md       # strategist agent instructions
 │   └── researcher.md       # researcher agent instructions
 ├── examples/
-│   └── tsp/config.yaml     # TSP test case
+│   └── tsp/                # first test case: beating LKH-2
 └── tests/
 ```
-
-## Evolution Strategy
-
-**Primary: Decomposed Module Evolution**
-- The strategist decomposes the codebase into modules
-- Each researcher evolves one module on a dedicated git branch
-- The strategist composes the best modules and evaluates the whole
-
-**Fallback: Cross-Pollination**
-- Used only when module composition fails due to tight coupling
-- Researchers fork the full codebase and evolve holistically
-
-## What Can AlgoForge Evolve?
-
-AlgoForge is a general-purpose system for evolving any algorithm that can be benchmarked numerically. The key requirements are: you have code, a build step, and a measurable metric.
-
-**Combinatorial Optimization**
-- TSP heuristics (the first test case — beating LKH-2)
-- Vehicle routing (CVRP, VRPTW)
-- Graph coloring, bin packing, scheduling
-- Any problem with known benchmark instances and optimal/best-known solutions
-
-**Search & Solver Algorithms**
-- SAT solvers
-- Constraint satisfaction solvers
-- Branch-and-bound implementations
-- Local search / metaheuristic frameworks
-
-**Numerical & Scientific Computing**
-- Matrix multiplication kernels
-- Sorting algorithms for specific data distributions
-- Compression algorithms
-- Signal processing routines
-
-**ML Training Code**
-- Neural network training loops
-- Optimizer implementations
-- Data augmentation strategies
-
-**Compiler / Code Generation**
-- Optimization passes
-- Code generation heuristics
-- Register allocation strategies
-
-The common thread: any codebase where you can compile, run against benchmarks, and get a number back — AlgoForge can try to improve that number by evolving the code. The domain-agnostic design (strategist does web research, prompts are generic) means it doesn't need to be pre-configured for any specific problem type.
