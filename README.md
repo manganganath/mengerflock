@@ -121,6 +121,3 @@ algoforge/
 - Used only when module composition fails due to tight coupling
 - Researchers fork the full codebase and evolve holistically
 
-## License
-
-MIT
