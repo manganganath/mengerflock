@@ -158,23 +158,20 @@ bash path/to/algoforge/src/algoforge/dashboard.sh state 5
 Shows real-time progress: per-researcher keep/discard counts, recent experiments, strategist actions.
 
 ```
-┌──────────────────────────────────────────────────────────────┐
-│  AlgoForge Dashboard  14:32:15              Runtime: 42m 3s  │
-├──────────────────────────────────────────────────────────────┤
-│  Experiments: 17    keep: 4     discard: 11    crash: 2     │
-├──────────────────────────────────────────────────────────────┤
-│  r1   (core_logic)         ██░░░░░░░░  1 keep / 5 disc     │
-│  r2   (heuristics)         ████░░░░░░  2 keep / 8 disc     │
-│  r3   (perturbation)       ██████████  1 keep / 0 disc     │
-│  w1   (wildcard)           █████░░░░░  1 keep / 1 disc     │
-├──────────────────────────────────────────────────────────────┤
-│  Recent experiments:                                         │
-│  14:31:21 r2   discard dampened warm fallback                │
-│  14:30:41 r1   discard extend break to outer loops           │
-│  14:28:29 r3   keep    expensive edge first in X2 loop       │
-├──────────────────────────────────────────────────────────────┤
-│  Strategist: 4 actions                                       │
-└──────────────────────────────────────────────────────────────┘
+AlgoForge Dashboard  14:32:15                    Runtime: 42m 3s
+Experiments: 17    keep: 4    discard: 11    crash: 2
+
+r1  (core_logic)    ##........  1 keep / 5 disc
+r2  (heuristics)    ####......  2 keep / 8 disc
+r3  (perturbation)  ##########  1 keep / 0 disc
+w1  (wildcard)      #####.....  1 keep / 1 disc
+
+Recent:
+  14:31:21  r2  discard  dampened warm fallback
+  14:30:41  r1  discard  extend break to outer loops
+  14:28:29  r3  keep     expensive edge first in X2 loop
+
+Strategist: 4 actions
 ```
 
 **tmux** — attach directly to watch agents work:
