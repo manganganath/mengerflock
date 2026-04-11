@@ -1,0 +1,58 @@
+module_name: perturbation
+files:
+  - SRC/FindTour.c
+  - SRC/KSwapKick.c
+  - SRC/ChooseInitialTour.c
+objective: >
+  Improve perturbation effectiveness so the search escapes local optima faster
+  and explores diverse basins of attraction. The current K-swap kick is weakly
+  guided and uses hardcoded parameters. The trial loop has no adaptive strategy.
+  Goal: reach optimal tours in fewer trials with less wasted time.
+constraints:
+  - Do not change function signatures: FindTour(void), KSwapKick(int K), ChooseInitialTour(void)
+  - Do not modify shared header LKH.h (request changes via strategist)
+  - Must compile cleanly with existing Makefile
+  - KSwapKick must remain compatible with the Link/Follow macros
+context: |
+  Three files control how LKH escapes local optima and restarts:
+
+  **KSwapKick.c** — The perturbation mechanism:
+  1. **Adaptive walk length**: WALK_STEPS=100 is hardcoded. Scale with instance:
+     max(20, min(200, Dimension/100)).
+  2. **Guided kick targeting**: Instead of random long-edge selection, identify
+     "frozen" edges (present in many recent local optima) and break them with
+     higher probability. This directly targets stagnation.
+  3. **Well-distributed cut points**: Ensure minimum spacing of Dimension/(2K)
+     between consecutive cut points in tour order. Current random walk can
+     cluster cuts, producing weak perturbations.
+  4. **Reactive kick strength**: Track trials since last improvement. After
+     threshold non-improving trials, increase K by 1 (up to K=8). Reset K
+     after improvement. Auto-adapts perturbation strength.
+  5. **Variable reconnection**: The fixed shift-by-2 pattern (line 58:
+     Link(s[(i+2)%K], s[i]->OldSuc)) could use random valid permutations
+     for richer perturbation variety.
+
+  **FindTour.c** — The trial loop:
+  6. **Directed FirstNode selection**: Choose FirstNode as the node with the
+     longest incident edge on the best tour, not random. Focuses LK effort.
+  7. **Adaptive trial budget**: If no improvement for ceil(sqrt(Dimension))
+     trials, trigger stronger perturbation (larger K, or restart from new tour).
+  8. **Multi-start diversity**: Alternate initial tour strategies across runs.
+
+  **ChooseInitialTour.c** — Initial tour construction:
+  9. **Relaxed alpha threshold**: Case C requires Alpha==0. Try Alpha <= small
+     threshold for wider edge selection while still preferring low-alpha.
+  10. **Better fallback**: Case E (non-candidate) uses sequential list traversal.
+      Use nearest-unvisited instead.
+
+  PRIMARY GOAL: Reach optimality fastest. Better perturbation = fewer trials
+  stuck in suboptimal basins = faster time to optimal.
+
+  CROSS-POLLINATION from r2 (2026-04-11): r2's iterative Gain23 dramatically
+  improved LK search quality — pcb3038 now 0.000%, d2103 halved to 0.054%.
+  This means the LK search is now finding deeper local optima. YOUR perturbation
+  needs to be STRONGER to escape these deeper basins. Focus especially on:
+  - Reactive kick strength (increase K when stagnating)
+  - Guided targeting of frozen edges that persist across the deeper optima
+  - d2103 is the hardest remaining target (0.054% avg gap with r2's improvement)
+  - fl1577 still has a gap too (0.047% avg)
