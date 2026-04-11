@@ -246,7 +246,7 @@ Run the evolved algorithm on the SAME instances, with the SAME (or comparable) e
 - Same number of runs if feasible (or more for better statistics)
 - Same or comparable time budgets
 - Same metrics
-- If the paper tested on instances we don't have, try to download them (use WebSearch/WebFetch to find TSPLIB or other benchmark repositories). Only note as a limitation if you truly cannot obtain them.
+- If the paper tested on instances we don't have, try to download them (use WebSearch/WebFetch to find benchmark repositories). Only note as a limitation if you truly cannot obtain them.
 
 **Step 3: Run the ORIGINAL UNMODIFIED algorithm with the same protocol.**
 IMPORTANT: The "baseline" is the ORIGINAL algorithm as published, NOT the seed you received. Your seed may already contain improvements from previous iterations. To get the original:

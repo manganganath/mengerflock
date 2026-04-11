@@ -50,13 +50,13 @@ LOOP FOREVER:
 
 3. **Commit**: `git add` your changes and `git commit -m "<hypothesis>"`.
 
-4. **Build**: Run the build command (e.g., `cd LKH-2 && make -j4`). Redirect output: `make -j4 > build.log 2>&1`
+4. **Build**: Run the build command from config (e.g., `make -j4`). Redirect output: `make -j4 > build.log 2>&1`
    - If the build fails, read `build.log`, fix the error, and retry (up to 3 times).
    - If you can't fix it after 3 tries, revert and log as crash.
 
-5. **Evaluate**: Run the binary against each small-tier benchmark instance in `datasets/`. Use `eval.sh` or run the binary directly. Record tour lengths and compute gap_to_optimal using `datasets/optimal.json`.
+5. **Evaluate**: Run the binary against each small-tier benchmark instance in `datasets/`. Use `eval.sh` or run the binary directly. Record objective values and compute gap_to_optimal using `datasets/optimal.json`.
 
-   **Large instance screening (MANDATORY for instances >1000 cities):**
+   **Large instance screening (MANDATORY for large instances):**
    1. Run with seed 42 only
    2. If the result is worse than your current best → discard immediately, do NOT run remaining seeds
    3. Only if seed 42 is equal or better → run the remaining 4 seeds
