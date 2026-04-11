@@ -54,7 +54,7 @@ LOOP FOREVER:
    - If the build fails, read `build.log`, fix the error, and retry (up to 3 times).
    - If you can't fix it after 3 tries, revert and log as crash.
 
-5. **Evaluate**: Run the binary against each small-tier benchmark instance in `datasets/`. Use `eval.sh` or run the binary directly. Record objective values and compute gap_to_optimal using `datasets/optimal.json`.
+5. **Evaluate**: Run the binary against training instances in `datasets/train/` (NOT holdout). Use `eval.sh` or run the binary directly. If `datasets/train/` doesn't exist, check your assignment or ask the strategist — you should never evaluate on holdout during Phase 2.
 
    **Large instance screening (MANDATORY for large instances):**
    1. Run with seed 42 only
@@ -84,8 +84,8 @@ LOOP FOREVER:
      "<your_id>" \
      "<module_name>" \
      "$(git rev-parse --short HEAD)" \
-     "<metric_avg>" \
-     "<metric_best>" \
+     "<metric_avg>" \           # MUST be a number (e.g., 0.006, 137694). Never text.
+     "<metric_best>" \          # MUST be a number. Never text.
      "<keep|discard|crash>" \
      "<hypothesis>" \
      "<description>" \

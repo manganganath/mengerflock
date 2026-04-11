@@ -44,6 +44,12 @@ class BuildConfig:
 
 
 @dataclasses.dataclass
+class TrainingConfig:
+    train: str | None = None
+    validation: str | None = None
+
+
+@dataclasses.dataclass
 class BenchmarkConfig:
     small: list[str]
     medium: list[str] = dataclasses.field(default_factory=list)
@@ -106,6 +112,7 @@ class MengerFlockConfig:
     build: BuildConfig
     benchmarks: BenchmarkConfig
     evaluation: EvaluationConfig
+    training: TrainingConfig
     agents: AgentsConfig
     timeouts: TimeoutsConfig
     stopping_conditions: StoppingConditions
@@ -180,6 +187,13 @@ def load_config(path: str | Path) -> MengerFlockConfig:
         random_seeds=random_seeds,
     )
 
+    # Training (optional — strategist generates if missing)
+    train_raw = raw.get("training", {})
+    training = TrainingConfig(
+        train=train_raw.get("train"),
+        validation=train_raw.get("validation"),
+    )
+
     # Agents
     agents_raw = _require(raw, "agents")
     strat_raw = _require(agents_raw, "strategist", "agents")
@@ -240,6 +254,7 @@ def load_config(path: str | Path) -> MengerFlockConfig:
         build=build,
         benchmarks=benchmarks,
         evaluation=evaluation,
+        training=training,
         agents=agents,
         timeouts=timeouts,
         stopping_conditions=stopping,

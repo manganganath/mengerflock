@@ -81,11 +81,16 @@ All shared state is in the `state/` directory at the project root (the directory
    context: <your analysis of this module and what might work>
    ```
 
-9. **Generate training and validation datasets**: Inspect the holdout files to understand the format. Generate synthetic instances in the same format:
-   - Train: diverse sizes and distributions for researchers
-   - Validation: separate set for composition evaluation
-   Write them to `datasets/train/` and `datasets/validation/`.
-   Rule: train and validation files must be in the same format as holdout so the binary can consume them without modification.
+9. **Set up training and validation datasets**: Check `config.yaml` for a `training` section with paths to existing train/validation data:
+   ```yaml
+   training:
+     train: "../my-project/datasets/train/"
+     validation: "../my-project/datasets/validation/"
+   ```
+   - If training paths exist in config AND the directories contain files: use them. Symlink or copy into the experiment's `datasets/` directory so researchers can find them.
+   - If no training paths in config OR directories are empty: generate synthetic instances. Inspect the holdout files to understand the format, then generate in the same format. Write to the template's datasets folder (derive from `original_seed_path`) so future experiments can reuse them.
+
+   Rule: train and validation files MUST be in the same format as holdout so the binary can consume them without modification. Researchers MUST use training data for their experiments, NOT holdout. Holdout is only for Phase 3 evaluation.
 
 10. **Signal Phase 1 complete**: Run `touch state/phase1_complete`. This tells the orchestrator to launch researchers. Do NOT create this file before the user has approved.
 

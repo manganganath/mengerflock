@@ -49,8 +49,8 @@ LOOP FOREVER:
      "w1" \
      "wildcard" \
      "$(git rev-parse --short HEAD)" \
-     "<metric_avg>" \
-     "<metric_best>" \
+     "<metric_avg>" \           # MUST be a number (e.g., 0.006, 137694). Never text.
+     "<metric_best>" \          # MUST be a number. Never text.
      "<keep|discard|crash>" \
      "<hypothesis>" \
      "<description>" \
