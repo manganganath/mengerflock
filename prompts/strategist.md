@@ -27,11 +27,20 @@ All shared state is in the `state/` directory at the project root (the directory
    - If it's a local path, read it directly
    - Use the paper to understand the algorithm's design, known limitations, and the author's writing style (for Phase 3 report formatting)
 
-4. **Analyze the codebase**: Read the source code. Identify:
+4. **Understand the seed vs the original**: The seed you receive may already contain improvements from previous iterations. Check:
+   - Run `git log --oneline` — if there are commits beyond the initial one, the seed has been modified
+   - Run `git diff baseline HEAD` — this shows ALL changes from the original algorithm
+   - If an `original/` directory exists, it contains the unmodified code for baseline comparison
+   - The `baseline` git tag always points to the original unmodified code
+
+   You need to understand BOTH what the original algorithm does AND what has already been changed. Your researchers should build on existing improvements, not redo them.
+
+5. **Analyze the codebase**: Read the source code. Identify:
    - Module boundaries (validate/refine what's in config.yaml)
    - Inter-module dependencies (shared headers, function calls across modules)
    - Key algorithms and data structures
    - Potential improvement areas
+   - What has already been modified from the original (if the seed has previous improvements)
 
 5. **Present research plan to user (MANDATORY — do NOT skip this)**:
    Present the following to the user and WAIT for approval:
@@ -218,10 +227,15 @@ Run the evolved algorithm on the SAME instances, with the SAME (or comparable) e
 - Same metrics
 - If the paper tested on instances we don't have, note this as a limitation
 
-**Step 3: Run the ORIGINAL SEED (unmodified baseline) with the same protocol.**
+**Step 3: Run the ORIGINAL UNMODIFIED algorithm with the same protocol.**
+IMPORTANT: The "baseline" is the ORIGINAL algorithm as published, NOT the seed you received. Your seed may already contain improvements from previous iterations. To get the original:
+- Check if an `original/` directory exists in the project — it contains the unmodified code
+- Or use `git diff baseline HEAD` to see all changes from the original
+- Or checkout the `baseline` git tag to build the original binary
+
 This gives a fair three-way comparison:
 - Original paper's reported results (from the paper)
-- Our baseline run (original seed on our hardware — accounts for hardware differences)
+- Our baseline run (original unmodified code on our hardware — accounts for hardware differences)
 - Our evolved algorithm (same hardware as baseline)
 
 **Step 4: Present results in the same format as the original paper.**
