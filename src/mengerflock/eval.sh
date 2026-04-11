@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# AlgoForge benchmark evaluation script
+# MengerFlock benchmark evaluation script
 # Usage: ./eval.sh <binary> <instance.tsp> <seed> <timeout>
 # Output: tour_length on stdout, or "FAIL" on error
 # Compatible with macOS and Linux
@@ -11,8 +11,9 @@ INSTANCE="$2"
 SEED="${3:-42}"
 TIMEOUT="${4:-30}"
 
-if [ ! -x "$BINARY" ]; then
-    echo "FAIL: binary not found or not executable: $BINARY" >&2
+BINARY_CMD=$(echo "$BINARY" | awk '{print $1}')
+if ! command -v "$BINARY_CMD" > /dev/null 2>&1; then
+    echo "FAIL: command not found: $BINARY_CMD" >&2
     exit 1
 fi
 
@@ -22,8 +23,8 @@ if [ ! -f "$INSTANCE" ]; then
 fi
 
 # Create temporary files (macOS-compatible mktemp)
-PARAM_FILE=$(mktemp /tmp/algoforge_eval_XXXXXX)
-TOUR_FILE=$(mktemp /tmp/algoforge_eval_tour_XXXXXX)
+PARAM_FILE=$(mktemp /tmp/mengerflock_eval_XXXXXX)
+TOUR_FILE=$(mktemp /tmp/mengerflock_eval_tour_XXXXXX)
 
 trap 'rm -f "$PARAM_FILE" "$TOUR_FILE"' EXIT
 

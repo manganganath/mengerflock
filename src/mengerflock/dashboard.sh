@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# AlgoForge Live Dashboard
+# MengerFlock Live Dashboard
 # Usage: ./dashboard.sh [state_dir] [refresh_seconds]
 # Default: ./dashboard.sh state 5
 
@@ -28,7 +28,7 @@ while true; do
 
     # Header
     echo "┌──────────────────────────────────────────────────────────────┐"
-    printf "│  AlgoForge Dashboard  %-20s  Runtime: %dm %ds  │\n" "$NOW" "$MINS" "$SECS"
+    printf "│  MengerFlock Dashboard  %-20s  Runtime: %dm %ds  │\n" "$NOW" "$MINS" "$SECS"
     echo "├──────────────────────────────────────────────────────────────┤"
     printf "│  Experiments: %-4s  keep: %-4s  discard: %-4s  crash: %-4s  │\n" "$TOTAL" "$KEEPS" "$DISCARDS" "$CRASHES"
     echo "├──────────────────────────────────────────────────────────────┤"
