@@ -19,6 +19,7 @@ def init_state_dir(state_dir: str | Path) -> None:
     state_dir = Path(state_dir)
     state_dir.mkdir(parents=True, exist_ok=True)
     (state_dir / "assignments").mkdir(exist_ok=True)
+    (state_dir / "interrupts").mkdir(exist_ok=True)
 
     results_path = state_dir / "results.tsv"
     if not results_path.exists():
@@ -87,3 +88,61 @@ def write_shutdown_flag(state_dir: str | Path) -> None:
 
 def is_shutdown_requested(state_dir: str | Path) -> bool:
     return (Path(state_dir) / "shutdown").exists()
+
+
+def write_interrupt(state_dir: str | Path, researcher_id: str, content: str) -> None:
+    path = Path(state_dir) / "interrupts" / f"{researcher_id}.md"
+    path.write_text(content)
+
+
+def read_interrupt(state_dir: str | Path, researcher_id: str) -> str | None:
+    path = Path(state_dir) / "interrupts" / f"{researcher_id}.md"
+    if path.exists():
+        return path.read_text()
+    return None
+
+
+def acknowledge_interrupt(state_dir: str | Path, researcher_id: str) -> None:
+    src = Path(state_dir) / "interrupts" / f"{researcher_id}.md"
+    dst = Path(state_dir) / "interrupts" / f"{researcher_id}.ack.md"
+    if src.exists():
+        src.rename(dst)
+
+
+def write_objectives(state_dir: str | Path, content: str) -> None:
+    path = Path(state_dir) / "objectives.md"
+    path.write_text(content)
+
+
+def read_objectives(state_dir: str | Path) -> str | None:
+    path = Path(state_dir) / "objectives.md"
+    if path.exists():
+        return path.read_text()
+    return None
+
+
+BASELINE_HOLDOUT_FILE = "baseline_holdout.tsv"
+
+
+def _init_baseline_holdout(state_dir: Path) -> None:
+    path = state_dir / BASELINE_HOLDOUT_FILE
+    if not path.exists():
+        path.write_text("\t".join(RESULTS_HEADER) + "\n")
+
+
+def append_baseline_holdout(state_dir: str | Path, result: dict) -> None:
+    state_dir = Path(state_dir)
+    path = state_dir / BASELINE_HOLDOUT_FILE
+    if not path.exists():
+        _init_baseline_holdout(state_dir)
+    ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
+    row = [
+        ts, result["researcher"], result["module"], result["commit"],
+        result["metric_avg"], result["metric_best"], result["status"],
+        result["hypothesis"], result["description"],
+    ]
+    _append_tsv(path, row)
+
+
+def read_baseline_holdout(state_dir: str | Path) -> list[dict]:
+    return _read_tsv(Path(state_dir) / BASELINE_HOLDOUT_FILE)
