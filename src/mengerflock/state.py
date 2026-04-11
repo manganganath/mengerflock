@@ -77,9 +77,11 @@ def write_assignment(state_dir: str | Path, researcher_id: str, assignment: dict
     path.write_text(yaml.dump(assignment, default_flow_style=False))
 
 
-def read_assignment(state_dir: str | Path, researcher_id: str) -> dict:
+def read_assignment(state_dir: str | Path, researcher_id: str) -> dict | None:
     path = Path(state_dir) / "assignments" / f"{researcher_id}.yaml"
-    return yaml.safe_load(path.read_text())
+    if not path.exists():
+        return None
+    return yaml.safe_load(path.read_text()) or {}
 
 
 def write_phase1_complete(state_dir: str | Path) -> None:
