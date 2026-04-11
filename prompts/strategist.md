@@ -186,6 +186,7 @@ When shutdown is requested, follow this EXACT sequence:
 4. **Produce experimentation report** (MANDATORY regardless of outcome):
    Write to `report/experimentation-report.md`:
    - Summary of the experiment
+   - **Attribution**: cite the source of the seed codebase (name, version, author, URL) and the holdout benchmark dataset (name, source, URL). These must appear prominently so readers know what was used.
    - Domain research findings
    - What was tried across all modules (from results.tsv)
    - What worked and why
@@ -208,7 +209,7 @@ The research paper must be written so that a researcher with domain knowledge ca
 
 1. **Abstract** — One paragraph: problem, approach, key results (specific numbers), and significance.
 
-2. **Introduction** — What problem is being solved, why it matters, what the baseline algorithm is, and what this paper contributes. Cite relevant prior work.
+2. **Introduction** — What problem is being solved, why it matters, what the baseline algorithm is, and what this paper contributes. Cite relevant prior work. **Must cite the seed codebase** (name, version, author, URL) and **the benchmark dataset** (name, source, URL).
 
 3. **Algorithm** — This is the core of the paper. For EVERY component of the evolved algorithm:
    - **Exact logic**: step-by-step description of what the algorithm does, not just what it "tries to do." Use numbered steps or pseudocode.
