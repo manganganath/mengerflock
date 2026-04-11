@@ -402,6 +402,16 @@ class Orchestrator:
             # Stop researchers, keep strategist alive for Phase 3
             self.stop_researchers()
 
+            # Nudge strategist to enter Phase 3
+            try:
+                subprocess.run([
+                    "tmux", "send-keys", "-t", "mengerflock:strategist",
+                    "The shutdown flag has been set and all researchers have stopped. Enter Phase 3 now: run holdout evaluation, compare against baselines, and write both reports.",
+                    "Enter"
+                ], check=False, capture_output=True, text=True)
+            except Exception:
+                pass
+
             if exit_reason == "exited":
                 print("All sessions exited unexpectedly.")
                 return
