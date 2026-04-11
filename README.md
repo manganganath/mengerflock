@@ -46,13 +46,11 @@ Any codebase where you can compile, run against benchmarks, and get a number bac
 
 | Domain | Examples |
 |---|---|
-| **Combinatorial Optimization** | Routing heuristics, vehicle routing, graph coloring, bin packing, scheduling |
+| **Combinatorial Optimization** | Graph search, graph coloring, bin packing, scheduling |
 | **Search & Solvers** | SAT solvers, constraint satisfaction, branch-and-bound, local search frameworks |
 | **Numerical Computing** | Matrix multiplication kernels, sorting algorithms, compression, signal processing |
 | **ML Training** | Neural network training loops, optimizer implementations, data augmentation |
 | **Compilers** | Optimization passes, code generation heuristics, register allocation |
-
-MengerFlock has been validated on two domains: TSP (LKH-2 heuristic) and bin packing (First Fit Decreasing).
 
 The domain-agnostic design means MengerFlock doesn't need to be pre-configured for any specific problem type. The strategist researches the domain autonomously via web search.
 
@@ -154,7 +152,20 @@ mengerflock run config.yaml
 **Live dashboard** (recommended) — open a separate terminal:
 ```bash
 cd my-project
+bash path/to/mengerflock/src/mengerflock/dashboard.sh [state_dir] [refresh_seconds]
+```
+
+Arguments:
+- `state_dir` — path to the state directory (default: `state`). This is the directory where `results.tsv` and `strategist_log.tsv` live.
+- `refresh_seconds` — how often the dashboard refreshes in seconds (default: `5`). Use a higher value like `15` or `30` to reduce terminal flicker during long runs.
+
+Example:
+```bash
+# Refresh every 5 seconds, reading from the default state/ directory
 bash path/to/mengerflock/src/mengerflock/dashboard.sh state 5
+
+# Refresh every 15 seconds, reading from a custom state directory
+bash path/to/mengerflock/src/mengerflock/dashboard.sh ./my-run/state 15
 ```
 
 Shows real-time progress: per-researcher keep/discard counts, recent experiments, strategist actions.
@@ -328,9 +339,9 @@ The strategist doesn't just observe — it actively steers researchers:
 | `mengerflock status` | Check progress | `mengerflock status` |
 | `mengerflock stop` | Graceful shutdown | `mengerflock stop` |
 | `mengerflock report` | Generate final report | `mengerflock report` |
-| `dashboard.sh` | Live terminal dashboard | `bash dashboard.sh state 5` |
+| `dashboard.sh` | Live terminal dashboard | `bash dashboard.sh [state_dir] [refresh_seconds]` |
 | `generate_instances.py` | Create synthetic benchmarks | `python generate_instances.py --output datasets/train --count 10 --sizes small,medium,large --distributions uniform,clustered` |
-| `eval.sh` | Run binary on one instance | `./eval.sh ./binary instance.tsp 42 60` |
+| `eval.sh` | Run binary on one instance | `./eval.sh <binary> <instance_file> [seed] [timeout]` |
 
 ## Project Structure
 
