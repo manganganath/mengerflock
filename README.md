@@ -45,16 +45,17 @@ The orchestrator is a thin Python layer that launches a tmux session with one wi
 **Inputs:**
 | Input | Required | Description |
 |---|---|---|
-| Seed codebase | Yes | The algorithm to evolve. A folder path or git URL. |
-| Benchmarks | Yes | Holdout instances with known optimal values for evaluation. |
-| Reference paper | No | URL or local path. If provided, the strategist reads it for domain context and mirrors its format in the research paper output. |
+| Seed codebase (`seed/`) | Yes | The starting point for this iteration. On the first run, this is the unmodified algorithm. On subsequent runs, it contains improvements from prior iterations. |
+| Original seed (`original-seed/`) | No (first iteration) / Yes (subsequent) | The unmodified algorithm as published. Never modified. Used for baseline comparison in Phase 3. |
+| Benchmarks (`datasets/holdout/`) | Yes | Holdout instances with known optimal values. Only used in Phase 3 evaluation. |
+| Reference paper | No | PDF or URL. If provided, the strategist reads it for domain context and the research report directly challenges it using the same evaluation methodology. |
 
 **Outputs:**
 | Output | Condition | Path |
 |---|---|---|
-| Evolved codebase | Always | Main branch of the experiment repo |
+| Evolved codebase | Always | `seed/` on main branch of the experiment repo |
 | Experimentation report | Always | `report/experimentation-report.md` — full log of all iterations, agents, compositions |
-| Research paper | Only if evolved beats baseline | `report/research-report.md` — near-publication quality, enough detail for reproduction |
+| Research report | Only if evolved beats baseline | `report/research-report.md` — challenges the original paper with same evaluation methodology, three-way comparison, and ablation study |
 
 ## What Can MengerFlock Evolve?
 
@@ -94,11 +95,15 @@ Create a project directory with your seed codebase and holdout benchmarks:
 ```
 my-project/
 ├── config.yaml
-├── seed/               # your algorithm's source code
+├── original-seed/      # unmodified algorithm as published (never touched, for baseline comparison)
+├── seed/               # starting point for this iteration (copy of original-seed on first run)
 ├── datasets/
 │   └── holdout/        # established benchmark instances (final eval only)
-└── eval.sh             # script that runs binary on one instance, outputs a number
+├── eval.sh             # script that runs binary on one instance, outputs a number
+└── paper.pdf           # optional: reference paper describing the original algorithm
 ```
+
+On the **first iteration**, `seed/` is identical to `original-seed/`. On **subsequent iterations**, `seed/` contains the evolved code from the previous iteration while `original-seed/` stays untouched. The strategist uses `original-seed/` for baseline evaluation in Phase 3.
 
 The strategist will generate `datasets/train/` and `datasets/validation/` automatically during initialization, in the same format as the holdout files.
 
@@ -107,11 +112,12 @@ The strategist will generate `datasets/train/` and `datasets/validation/` automa
 ```yaml
 project:
   name: "my-algorithm"
-  seed_path: "./seed/"             # folder path or git URL (e.g., https://github.com/user/repo.git)
+  seed_path: "./seed/"             # starting point for this iteration (required)
+  original_seed_path: "./original-seed/"  # unmodified algorithm for baseline comparison (optional)
   language: "c"
-  # paper: "https://..."           # optional: URL or local path to reference paper
+  # paper: "./paper.pdf"           # optional: reference paper describing the original algorithm
                                     # if provided, strategist reads it for domain context
-                                    # and mirrors its format in the output research paper
+                                    # and the research report challenges it directly
 
 modules:                    # the strategist can refine these after analyzing the code
   - name: "core_logic"

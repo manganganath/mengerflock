@@ -27,20 +27,25 @@ All shared state is in the `state/` directory at the project root (the directory
    - If it's a local path, read it directly
    - Use the paper to understand the algorithm's design, known limitations, and the author's writing style (for Phase 3 report formatting)
 
-4. **Understand the seed vs the original**: The seed you receive may already contain improvements from previous iterations. Check:
-   - Run `git log --oneline` — if there are commits beyond the initial one, the seed has been modified
-   - Run `git diff baseline HEAD` — this shows ALL changes from the original algorithm
-   - If an `original/` directory exists, it contains the unmodified code for baseline comparison
-   - The `baseline` git tag always points to the original unmodified code
+4. **Understand the three versions of the code**: The experiment directory may contain up to three versions:
 
-   You need to understand BOTH what the original algorithm does AND what has already been changed. Your researchers should build on existing improvements, not redo them.
+   - **`original-seed/`** — the unmodified algorithm as originally published. NEVER modified. Used for baseline evaluation in Phase 3 and for understanding the original design.
+   - **`seed/`** — your starting point for THIS iteration. On the first iteration, this is identical to `original-seed/`. On subsequent iterations, it contains improvements from previous iterations.
+   - **Evolved code** (on `main` branch) — what your researchers produce during this experiment via compositions.
 
-5. **Analyze the codebase**: Read the source code. Identify:
+   To understand what has already been changed:
+   - Compare `original-seed/` to `seed/` — these are the accumulated improvements from prior iterations
+   - Run `git diff baseline HEAD` — the `baseline` tag points to the initial commit of `seed/`
+   - If `original-seed/` doesn't exist, this is the first iteration and `seed/` IS the original
+
+   You need to understand BOTH the original algorithm AND what has already been changed. Your researchers should build on existing improvements, not redo them. When presenting your research plan to the user, note which areas have already been improved and which are unexplored.
+
+5. **Analyze the codebase**: Read the source code in `seed/`. Identify:
    - Module boundaries (validate/refine what's in config.yaml)
    - Inter-module dependencies (shared headers, function calls across modules)
    - Key algorithms and data structures
    - Potential improvement areas
-   - What has already been modified from the original (if the seed has previous improvements)
+   - What has already been modified from `original-seed/` (if prior iterations exist)
 
 5. **Present research plan to user (MANDATORY — do NOT skip this)**:
    Present the following to the user and WAIT for approval:
@@ -229,14 +234,15 @@ Run the evolved algorithm on the SAME instances, with the SAME (or comparable) e
 
 **Step 3: Run the ORIGINAL UNMODIFIED algorithm with the same protocol.**
 IMPORTANT: The "baseline" is the ORIGINAL algorithm as published, NOT the seed you received. Your seed may already contain improvements from previous iterations. To get the original:
-- Check if an `original/` directory exists in the project — it contains the unmodified code
-- Or use `git diff baseline HEAD` to see all changes from the original
-- Or checkout the `baseline` git tag to build the original binary
+- Build and run from `original-seed/` — this is the unmodified code
+- If `original-seed/` doesn't exist, this is the first iteration — use the `baseline` git tag instead
 
 This gives a fair three-way comparison:
 - Original paper's reported results (from the paper)
-- Our baseline run (original unmodified code on our hardware — accounts for hardware differences)
+- Our baseline run (`original-seed/` on our hardware — accounts for hardware differences)
 - Our evolved algorithm (same hardware as baseline)
+
+If this is NOT the first iteration (i.e., `original-seed/` differs from `seed/`), also consider a four-way comparison adding the initial seed (start of this iteration) to show incremental vs cumulative improvement.
 
 **Step 4: Present results in the same format as the original paper.**
 If the original paper uses Table 3 to show per-instance results with columns (Instance, Optimum, Best, Avg, Time), create the same table structure with our results alongside. A reader should be able to look at both papers side by side.
