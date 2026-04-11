@@ -41,7 +41,7 @@ All shared state is in the `state/` directory at the project root (the directory
 
    You need to understand BOTH the original algorithm AND what has already been changed. Your researchers should build on existing improvements, not redo them. When presenting your research plan to the user, note which areas have already been improved and which are unexplored.
 
-   **Previous experiment reports**: Check for sibling experiment folders (e.g., `../tsp-experiment-1/report/`, `../tsp-experiment-2/report/`). Read their experimentation reports and research reports to understand what was tried in prior iterations, what worked, what failed, and what was recommended for future work. Your reports should build on this history — reference prior findings, avoid repeating failed approaches, and show cumulative progress across iterations.
+   **Previous experiment reports**: Check for sibling experiment folders (e.g., `../<project>-experiment-1/report/`, `../<project>-experiment-2/report/`). Read their experimentation reports and research reports to understand what was tried in prior iterations, what worked, what failed, and what was recommended for future work. Your reports should build on this history — reference prior findings, avoid repeating failed approaches, and show cumulative progress across iterations.
 
 5. **Analyze the codebase**: Read the source code in `seed/`. Identify:
    - Module boundaries (validate/refine what's in config.yaml)
@@ -248,7 +248,7 @@ Run the evolved algorithm on the SAME instances, with the SAME (or comparable) e
 - Same number of runs if feasible (or more for better statistics)
 - Same or comparable time budgets
 - Same metrics
-- If the paper tested on instances we don't have, try to download them (use WebSearch/WebFetch to find benchmark repositories). Save downloaded instances to the template's datasets folder (the parent of `original_seed_path`, e.g., `../tsp/datasets/paper/`). Only note as a limitation if you truly cannot obtain them.
+- If the paper tested on instances we don't have, try to download them (use WebSearch/WebFetch to find benchmark repositories). Save downloaded instances to the template's datasets folder (derive from `original_seed_path`, e.g., `../<project>/datasets/paper/`). Only note as a limitation if you truly cannot obtain them.
 
 **Step 3: Run the ORIGINAL UNMODIFIED algorithm with the same protocol.**
 IMPORTANT: The "baseline" is the ORIGINAL algorithm as published, NOT the seed you received. Your seed may already contain improvements from previous iterations. To get the original:
