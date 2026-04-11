@@ -26,11 +26,23 @@ All paths are relative to your working directory. No need to discover the projec
 
 4. Read `state/results.tsv` to see recent experiment history. Learn from what worked and what didn't.
 
-5. Run the baseline (unmodified code) against small tier benchmarks and record the results. This is your starting point.
+5. Read `state/objectives.md` (if it exists) — these are the high-level research objectives approved by the user. Your module-level assignment is derived from these, but understanding the overall goal helps you make better decisions.
+
+6. Run the baseline (unmodified code) against small tier benchmarks and record the results. This is your starting point.
 
 ## The Experiment Loop
 
 LOOP FOREVER:
+
+0. **Check for interrupts** (MANDATORY — do this FIRST every iteration):
+   - Check if `state/interrupts/<your_id>.md` exists
+   - If it exists:
+     1. Read it — it contains an urgent redirect from the strategist
+     2. Rename it to `state/interrupts/<your_id>.ack.md` to acknowledge
+     3. Re-read your assignment at `state/assignments/<your_id>.yaml`
+     4. Adjust your approach based on the interrupt content
+   - Then check `state/assignments/<your_id>.yaml` for any updates
+   - Then check `state/shutdown` — if it exists, finish and exit
 
 1. **Hypothesize**: Based on your understanding of the code and past results, form a hypothesis about a specific change that should improve the metric. Write it down as a one-line hypothesis.
 
@@ -50,13 +62,20 @@ LOOP FOREVER:
    3. Only if seed 42 is equal or better → run the remaining 4 seeds
    This saves 80% of eval time on bad mutations.
 
-6. **Compare**:
+6. **Compare** (with composition test):
    - Calculate the geometric mean gap across instances.
-   - **Measure per-trial time**: before and after your change, note how long one benchmark run takes. If your change makes trials more than 10% slower on large instances, it will likely be rejected at composition even if gap improves. Prefer changes that are speed-neutral or faster.
-   - When logging to results.tsv, include timing info in the description (e.g., "d2103 gap 0.05%→0.03%, trial time 12s→11s").
-   - If **strictly better** than your current best AND no single instance regressed by more than 2x → **keep**.
-   - Otherwise → **discard**.
-   - If the training set gap is already 0% on small instances (saturated), skip small tier and evaluate on medium/large training instances instead.
+   - **Measure per-trial time**: before and after your change, note how long one benchmark run takes. If your change makes trials more than 10% slower on large instances, it will likely be rejected at composition even if gap improves.
+   - If **strictly better** than your current best AND no single instance regressed by more than 2x → **candidate keep**.
+   - **Composition test (MANDATORY for candidate keeps):**
+     1. `git fetch origin main`
+     2. `git checkout -b test-composition main`
+     3. `git cherry-pick HEAD@{1}` (your change commit)
+     4. If cherry-pick has conflicts → discard with note "composition conflict", go to cleanup
+     5. Build and evaluate on main
+     6. If still improves → confirmed keep
+     7. If regresses on main → discard with note "passed isolated, failed composition"
+     8. Cleanup: `git checkout <your_branch> && git branch -D test-composition`
+   - If the training set gap is already 0% on small instances (saturated), skip small tier and evaluate on medium/large.
 
 7. **Log** (**MANDATORY — do this EVERY iteration**): Append a row to `state/results.tsv`:
    ```bash
@@ -78,11 +97,7 @@ LOOP FOREVER:
    - If keep: your branch advances. This is your new baseline.
    - If discard: `git reset --hard HEAD~1`
 
-9. **Check for updates**:
-   - Re-read `state/assignments/<your_id>.yaml`. If the module_name changed, the strategist has reassigned you. Start over with the new assignment.
-   - Check if `state/shutdown` exists. If so, finish and exit.
-
-10. **Repeat** from step 1.
+9. **Repeat** from step 0.
 
 ## Rules
 
