@@ -1,5 +1,14 @@
 docs/
-examples/tsp
+examples/*
+!examples/binpacking/
+tests/
 __pycache__/
 *.pyc
 .pytest_cache/
+.worktrees/
+state/
+report/
+.venv/
+*.egg-info/
+dist/
+build/
