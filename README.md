@@ -52,6 +52,8 @@ Any codebase where you can compile, run against benchmarks, and get a number bac
 | **ML Training** | Neural network training loops, optimizer implementations, data augmentation |
 | **Compilers** | Optimization passes, code generation heuristics, register allocation |
 
+MengerFlock has been validated on two domains: TSP (LKH-2 heuristic) and bin packing (First Fit Decreasing).
+
 The domain-agnostic design means MengerFlock doesn't need to be pre-configured for any specific problem type. The strategist researches the domain autonomously via web search.
 
 ## User Guide
@@ -91,9 +93,9 @@ The strategist will generate `datasets/train/` and `datasets/validation/` automa
 ```yaml
 project:
   name: "my-algorithm"
-  mode: "evolve"            # evolve (from seed) or generate (from scratch)
   seed_path: "./seed/"
   language: "c"
+  # paper: "https://..."   # optional: URL or local path to reference paper
 
 modules:                    # the strategist can refine these after analyzing the code
   - name: "core_logic"
@@ -104,8 +106,8 @@ modules:                    # the strategist can refine these after analyzing th
     description: "Heuristic evaluation functions"
 
 build:
-  command: "make -j4"
-  binary: "./solver"
+  command: "make -j4"        # use "true" for interpreted languages (Python, etc.)
+  binary: "./solver"         # use "python solver.py" for Python
 
 benchmarks:
   small: ["datasets/holdout/small_*.txt"]
@@ -203,7 +205,7 @@ The strategist writes a comprehensive report to `report/report.md` covering what
 - **Let it run overnight.** Each researcher can do ~10-12 experiments per hour. An overnight run gives you 80-100 experiments per researcher.
 - **Check `state/results.tsv`** for a quick view of all experiments across all researchers.
 - **The strategist is the bottleneck.** It needs to compose, evaluate, and reassign. If researchers are idle, check the strategist window.
-- **Seed code matters.** Start from the best available implementation. The agents evolve from there — they don't invent from scratch (in evolve mode).
+- **Seed code matters.** Start from the best available implementation. The agents evolve from there — they don't invent from scratch.
 - **Add the wildcard** for runs longer than an hour. Its unconstrained exploration is slower but can find ideas the directed researchers miss.
 
 ## How It Works
