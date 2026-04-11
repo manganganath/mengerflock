@@ -76,8 +76,8 @@ def check_stopping_conditions(
         first_keep = numeric_keeps[0]
         baseline = float(first_keep["metric_avg"])
         improvement = baseline - best_avg
-            if improvement >= sc.target_improvement:
-                return True, f"Target improvement reached ({improvement:.4f} >= {sc.target_improvement})"
+        if improvement >= sc.target_improvement:
+            return True, f"Target improvement reached ({improvement:.4f} >= {sc.target_improvement})"
 
     # Stagnation
     if len(results) >= sc.stagnation_window:
