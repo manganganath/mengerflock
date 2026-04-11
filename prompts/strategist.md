@@ -207,7 +207,7 @@ When shutdown is requested, follow this EXACT sequence:
    These may differ: if prior iterations already improved the algorithm, the evolved code might beat the original but not the initial seed (meaning this iteration added nothing).
 
 4. **Produce experimentation report** (MANDATORY regardless of outcome):
-   Write to `report/experimentation-report.md`:
+   Write to `report/experimentation-report.md`. Name MengerFlock as the system throughout.
    - Summary of the experiment
    - **Attribution**: cite the source of the seed codebase (name, version, author, URL) and the holdout benchmark dataset (name, source, URL). These must appear prominently so readers know what was used.
    - Domain research findings
@@ -246,7 +246,7 @@ Run the evolved algorithm on the SAME instances, with the SAME (or comparable) e
 - Same number of runs if feasible (or more for better statistics)
 - Same or comparable time budgets
 - Same metrics
-- If the paper tested on instances we don't have, note this as a limitation
+- If the paper tested on instances we don't have, try to download them (use WebSearch/WebFetch to find TSPLIB or other benchmark repositories). Only note as a limitation if you truly cannot obtain them.
 
 **Step 3: Run the ORIGINAL UNMODIFIED algorithm with the same protocol.**
 IMPORTANT: The "baseline" is the ORIGINAL algorithm as published, NOT the seed you received. Your seed may already contain improvements from previous iterations. To get the original:
@@ -266,9 +266,9 @@ The research report must be written so that a researcher with domain knowledge c
 
 **Required sections:**
 
-1. **Abstract** — One paragraph: problem, approach, key results (specific numbers), and significance. If challenging an existing paper, state clearly: "We improve upon [Author Year] by..."
+1. **Abstract** — One paragraph: problem, approach, key results (specific numbers), and significance. Name **MengerFlock** as the system that produced the evolved algorithm. If challenging an existing paper, state clearly: "We improve upon [Author Year] by..."
 
-2. **Introduction** — What problem is being solved, why it matters, what the baseline algorithm is, and what this paper contributes. Cite relevant prior work. **Must cite the seed codebase** (name, version, author, URL) and **the benchmark dataset** (name, source, URL). If a reference paper exists, position this work as an improvement and explain what gap it addresses.
+2. **Introduction** — What problem is being solved, why it matters, what the baseline algorithm is, and what this paper contributes. Cite relevant prior work. **Must cite the seed codebase** (name, version, author, URL) and **the benchmark dataset** (name, source, URL). Name MengerFlock as the automated algorithm discovery system used. If a reference paper exists, position this work as an improvement and explain what gap it addresses.
 
 3. **Background** — Describe the original algorithm (from the reference paper) in enough detail that a reader can understand what was changed. Summarize the original paper's approach, key design decisions, and reported results.
 
@@ -294,13 +294,13 @@ The research report must be written so that a researcher with domain knowledge c
    - Per-seed breakdown for instances with high variance
    - Aggregate statistics across all instances
 
-7. **Ablation Study** — Remove each modification one at a time and measure the impact. This shows which changes contribute how much. Present as a table: (All changes, Remove A, Remove B, Remove C, Original baseline).
+7. **Ablation Study** — Remove each modification one at a time from the FULL evolved algorithm (all accumulated changes from ALL iterations, not just this one) and measure the impact. Use `git diff` between `original-seed/` and the evolved code to identify every distinct change. Present as a table: (Full evolved, Remove A, Remove B, Remove C, ..., Original baseline). This shows which changes contribute how much to the total improvement.
 
 8. **Analysis** — Interpret the results. Which instances improved most and why? Which modifications are most impactful? Do the improvements scale with instance size? Are there instances where the evolved algorithm is worse? Why?
 
 9. **Limitations** — What the approach cannot do. Where it fails. What would be needed to close the remaining gap. How the evaluation differs from the original paper (if at all).
 
-10. **Reproducibility** — Exact command to run the solver. Input/output format. Compiler version and flags. Dependencies. The complete diff against the original seed code. If the diff is large, include it as an appendix.
+10. **Reproducibility** — Follow the format and level of detail of the original paper's reproducibility/implementation section. Include: exact command to run the solver, input/output format, compiler version and flags, dependencies, and the complete diff against the original seed code (or full source for changed files). Cite the MengerFlock repository URL for the complete evolved codebase.
 
 11. **References** — Cite the original paper, the seed codebase, the benchmark dataset, and any other relevant work.
 
