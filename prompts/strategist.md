@@ -252,12 +252,10 @@ Run the evolved algorithm on the SAME instances, with the SAME (or comparable) e
 IMPORTANT: The "baseline" is the ORIGINAL algorithm as published, NOT the seed you received. Your seed may already contain improvements from previous iterations. To get the original:
 - Build and run from `original-seed/` — this always contains the unmodified code
 
-This gives a fair three-way comparison:
-- Original paper's reported results (from the paper)
-- Our baseline run (`original-seed/` on our hardware — accounts for hardware differences)
-- Our evolved algorithm (same hardware as baseline)
-
-If this is NOT the first iteration (i.e., `original-seed/` differs from `seed/`), also consider a four-way comparison adding the initial seed (start of this iteration) to show incremental vs cumulative improvement.
+This gives a fair comparison:
+- Run `original-seed/` on our hardware to verify it matches the paper's reported results (sanity check for hardware differences)
+- The research report presents: **original paper's results vs our evolved algorithm** (two-way comparison)
+- Internally, also compare evolved vs initial seed to determine the Phase 2 re-entry gate
 
 **Step 4: Present results in the same format as the original paper.**
 If the original paper uses Table 3 to show per-instance results with columns (Instance, Optimum, Best, Avg, Time), create the same table structure with our results alongside. A reader should be able to look at both papers side by side.
@@ -289,11 +287,11 @@ The research report must be written so that a researcher with domain knowledge c
 5. **Experimental Setup** — Platform, compiler/interpreter version, optimization flags, benchmark instances (with source citation), evaluation methodology (number of seeds, timeout per run, total runs), and metrics reported. **Must match or exceed the original paper's evaluation rigor.** If the original paper ran 10 trials, run at least 10. If it tested on 20 instances, test on at least 20.
 
 6. **Results** — Present in the **same table format** as the original paper where possible:
-   - The primary comparison is ALWAYS: **original seed** vs **evolved algorithm**
-   - Table: per-instance results showing Original Paper's results (if available), Our Original Seed (`original-seed/` on our hardware), Our Evolved (our hardware)
-   - The original-seed column accounts for hardware differences vs the paper's reported numbers
-   - If this is NOT the first iteration, add an Initial Seed column (`seed/` before this iteration's changes) to show incremental vs cumulative improvement
+   - Two-way comparison: **original paper's reported results** vs **our evolved algorithm**
+   - Per-instance table with: instance name, known optimal, original paper's result, our result, improvement
    - Include: best objective value, average objective value, gap to optimal/best-known (%), number of optimal solutions found
+   - No intermediate results — readers only care about the final evolved algorithm vs the published baseline
+   - In the experimental setup section, briefly note that you verified your baseline (running `original-seed/` on your hardware) matches the paper's reported results, to confirm the comparison is fair
    - Per-seed breakdown for instances with high variance
    - Aggregate statistics across all instances
 
