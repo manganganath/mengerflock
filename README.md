@@ -54,7 +54,7 @@ The orchestrator is a thin Python layer that launches a tmux session with one wi
 |---|---|---|
 | Evolved codebase | Always | Main branch of the experiment repo |
 | Experimentation report | Always | `report/experimentation-report.md` — full log of all iterations, agents, compositions |
-| Research paper | Only if evolved beats baseline | `report/research-paper.md` — near-publication quality, enough detail for reproduction |
+| Research paper | Only if evolved beats baseline | `report/research-report.md` — near-publication quality, enough detail for reproduction |
 
 ## What Can MengerFlock Evolve?
 
@@ -236,7 +236,7 @@ mengerflock stop
 mengerflock report
 ```
 
-The strategist writes `report/experimentation-report.md` covering what was tried, what worked, and benchmark comparisons. If the evolved algorithm beats the baseline on holdout, it also writes `report/research-paper.md` — a near-publication-quality paper with full reproduction details.
+The strategist writes `report/experimentation-report.md` covering what was tried, what worked, and benchmark comparisons. If the evolved algorithm beats the baseline on holdout, it also writes `report/research-report.md` — a near-publication-quality paper with full reproduction details.
 
 ```bash
 # Reset experiment state (removes state/, .worktrees/, report/, experiment branches)
@@ -357,7 +357,7 @@ stateDiagram-v2
 **Required outputs verified before completion:**
 - Evolved codebase on main branch (always)
 - `report/experimentation-report.md` (always)
-- `report/research-paper.md` (only if evolved beats baseline)
+- `report/research-report.md` (only if evolved beats baseline)
 
 ### Composition Strategy
 

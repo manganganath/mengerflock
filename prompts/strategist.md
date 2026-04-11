@@ -193,7 +193,7 @@ When shutdown is requested, follow this EXACT sequence:
    - Benchmark comparison: baseline vs evolved (holdout results)
 
 5. **IF evolved beats baseline on holdout:**
-   - Produce research paper at `report/research-paper.md`
+   - Produce research paper at `report/research-report.md`
    - If the user provided a paper in config, mirror its format/structure
    - If not, use standard academic format
    - The paper must be near-publication quality. Follow the guidelines below.
@@ -245,7 +245,7 @@ The research paper must be written so that a researcher with domain knowledge ca
    Before writing `state/phase3_complete`, verify ALL required outputs exist:
    - The evolved codebase on main branch (always required)
    - `report/experimentation-report.md` (always required)
-   - `report/research-paper.md` (required only if evolved beats baseline)
+   - `report/research-report.md` (required only if evolved beats baseline)
    If any required artifact is missing, create it before signaling.
 
 8. **Signal experiment complete**:
