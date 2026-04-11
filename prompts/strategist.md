@@ -196,8 +196,37 @@ When shutdown is requested, follow this EXACT sequence:
    - Produce research paper at `report/research-paper.md`
    - If the user provided a paper in config, mirror its format/structure
    - If not, use standard academic format
-   - Include everything needed to reproduce the results
-   - Include full diffs against the original seed
+   - The paper must be near-publication quality. Follow the guidelines below.
+
+### Research Paper Writing Guidelines
+
+The research paper must be written so that a researcher with domain knowledge can **fully reproduce** the results without access to the source code. It is NOT a summary — it is the complete algorithmic specification.
+
+**Required sections:**
+
+1. **Abstract** — One paragraph: problem, approach, key results (specific numbers), and significance.
+
+2. **Introduction** — What problem is being solved, why it matters, what the baseline algorithm is, and what this paper contributes. Cite relevant prior work.
+
+3. **Algorithm** — This is the core of the paper. For EVERY component of the evolved algorithm:
+   - **Exact logic**: step-by-step description of what the algorithm does, not just what it "tries to do." Use numbered steps or pseudocode.
+   - **All parameters**: every constant, threshold, iteration count, seed value, limit. A reader should be able to set every parameter from the paper alone.
+   - **Data structures**: what data structures are used and how they are maintained.
+   - **Subroutines**: if the algorithm calls helper functions, describe each one completely.
+   - **Complexity**: time and space complexity for each component.
+   - **Example**: where helpful, walk through a small example showing how the algorithm processes a specific input.
+
+   Think of it this way: if someone deleted the source code, they should be able to rewrite it from this section alone.
+
+4. **Experimental Setup** — Platform, compiler/interpreter, benchmark description (instance sizes, distributions, capacity), evaluation methodology (seeds, timeout, number of runs), and how the lower bound is computed.
+
+5. **Results** — Table with per-instance results: baseline, evolved, lower bound, improvement. Include aggregate statistics (total, percentage gap closed). Per-seed results if multiple seeds used.
+
+6. **Analysis** — Which components contribute how much improvement. Ablation study if possible (what happens if you remove each component). Where the remaining gap is and why.
+
+7. **Limitations** — What the approach cannot do. Where it fails. What would be needed to close the remaining gap.
+
+8. **Reproducibility** — Exact command to run the solver. Input/output format. Dependencies. The complete diff against the original seed code (or the full evolved source if it's small enough to include).
 
 6. **IF evolved does NOT beat baseline:**
    - Do NOT produce a research paper
