@@ -11,5 +11,5 @@ __pycache__/
 *.egg-info/
 
 # Example projects: track experiment results, ignore templates (which contain large holdout datasets)
-example-projects/binpacking/
-example-projects/tsp/
+projects/binpacking/
+projects/tsp/

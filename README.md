@@ -472,7 +472,7 @@ mengerflock/
 │   ├── strategist.md           # strategist agent instructions
 │   ├── researcher.md           # researcher agent instructions
 │   └── wildcard.md             # wildcard agent instructions
-├── example-projects/            # example project configs
+├── projects/            # example project configs
 └── tests/
 ```
 
