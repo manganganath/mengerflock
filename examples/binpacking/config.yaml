@@ -1,0 +1,35 @@
+project:
+  name: "binpacking-ffd"
+  seed_path: "./seed/"
+  language: "python"
+
+modules:
+  - name: "packing_heuristic"
+    files: ["seed/solver.py"]
+    description: "First Fit Decreasing bin packing algorithm"
+
+build:
+  command: "true"
+  binary: "python seed/solver.py"
+
+benchmarks:
+  small: ["datasets/holdout/small_*.txt"]
+  medium: ["datasets/holdout/medium_*.txt"]
+  large: ["datasets/holdout/large_*.txt"]
+
+evaluation:
+  metric: "bins_used"
+  runs_per_instance: 1
+  random_seeds: [42]
+
+agents:
+  tool: "claude"
+  strategist:
+    model_flags: "--model opus"
+  researchers:
+    model_flags: "--model sonnet"
+
+stopping_conditions:
+  max_total_iterations: 200
+  max_hours: 4
+  stagnation_window: 30
