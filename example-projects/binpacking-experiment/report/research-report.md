@@ -10,6 +10,8 @@ The one-dimensional bin packing problem is a fundamental combinatorial optimizat
 
 We describe a portfolio-based approach that runs multiple heuristic strategies in parallel and applies aggressive local search post-processing to each. The key insight is that different initial packings produce different bin configurations, giving local search different neighborhoods to explore.
 
+**Seed algorithm:** Our baseline is a pure FFD implementation (Python, stdlib only), written for this experiment. **Benchmarks:** 13 synthetic bin packing instances with items drawn uniformly from [20, 80] and bin capacities 100-150, spanning small (20-55 items), medium (80-250 items), and large (400-1000 items) sizes.
+
 ## 2. Algorithm
 
 ### 2.1 Initial Packing Strategies

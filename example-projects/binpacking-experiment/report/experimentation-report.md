@@ -4,6 +4,11 @@
 
 This experiment evolved a First Fit Decreasing (FFD) bin packing solver into a multi-strategy solver combining three initial packing heuristics, aggressive local search post-processing, and randomized destroy-and-repack metaheuristic. The evolved solver reduces total bins used from **1622 to 1610** across 13 holdout instances (-12 bins, closing 41% of the gap to the lower bound).
 
+## Attribution
+
+- **Seed algorithm**: First Fit Decreasing (FFD) — a classic bin packing heuristic. Implementation written for this experiment in Python (stdlib only).
+- **Holdout benchmarks**: 13 synthetic bin packing instances generated for this experiment. Items drawn uniformly from [20, 80], bin capacities 100-150. Sizes: 5 small (20-55 items), 5 medium (80-250 items), 3 large (400-1000 items). Lower bounds computed via L1 (ceil(sum/capacity)) and L2 (count of items > C/2).
+
 ## Domain Research Findings
 
 ### The 1D Bin Packing Problem
