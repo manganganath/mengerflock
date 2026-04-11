@@ -38,10 +38,6 @@ def init_project(project_dir: Path, config: MengerFlockConfig) -> None:
     state_dir = project_dir / "state"
     init_state_dir(state_dir)
 
-    # Create module branches
-    for module in config.modules:
-        create_branch(project_dir, f"module/{module.name}")
-
 
 def check_stopping_conditions(
     state_dir: Path,
@@ -167,8 +163,10 @@ class Orchestrator:
     def launch_researcher(self, researcher_id: str, module_name: str) -> None:
         """Launch a researcher agent in its own git worktree and tmux window."""
         wt_path = self.project_dir / ".worktrees" / researcher_id
-        branch = f"module/{module_name}"
+        branch = f"researcher/{researcher_id}"
 
+        # Each researcher gets its own branch (even when sharing a module)
+        create_branch(self.project_dir, branch)
         if not wt_path.exists():
             create_worktree(self.project_dir, wt_path, branch)
 
