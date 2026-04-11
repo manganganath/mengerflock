@@ -63,12 +63,19 @@ def check_stopping_conditions(
     # not against the true pre-experiment baseline. The strategist performs the
     # definitive holdout comparison in Phase 3.
     keep_results = [r for r in results if r["status"] == "keep"]
-    if keep_results:
-        best_avg = min(float(r["metric_avg"]) for r in keep_results)
-        first_keep = next((r for r in results if r["status"] == "keep"), None)
-        if first_keep:
-            baseline = float(first_keep["metric_avg"])
-            improvement = baseline - best_avg
+    # Filter to numeric metric values only (agents sometimes log non-numeric values)
+    numeric_keeps = []
+    for r in keep_results:
+        try:
+            float(r["metric_avg"])
+            numeric_keeps.append(r)
+        except (ValueError, TypeError):
+            pass
+    if numeric_keeps:
+        best_avg = min(float(r["metric_avg"]) for r in numeric_keeps)
+        first_keep = numeric_keeps[0]
+        baseline = float(first_keep["metric_avg"])
+        improvement = baseline - best_avg
             if improvement >= sc.target_improvement:
                 return True, f"Target improvement reached ({improvement:.4f} >= {sc.target_improvement})"
 
