@@ -209,8 +209,15 @@ Strategist: 4 actions
 **tmux** — attach directly to watch agents work:
 ```bash
 tmux attach -t mengerflock
-# Ctrl+B then 1-5 to switch windows, Ctrl+B d to detach
 ```
+
+Navigating between agent windows:
+- `Ctrl+B` then `n` — next window
+- `Ctrl+B` then `p` — previous window
+- `Ctrl+B` then `1` — jump to window 1 (strategist)
+- `Ctrl+B` then `2` — jump to window 2 (researcher r1)
+- `Ctrl+B` then `3` — jump to window 3 (researcher r2 or wildcard, depending on config)
+- `Ctrl+B` then `d` — detach (leave agents running, return to your shell)
 
 **CLI** — quick status check:
 ```bash
