@@ -64,7 +64,7 @@ All shared state is in the `state/` directory at the project root (the directory
 
 6. **Write approved objectives**: After user approval, write the agreed objectives to `state/objectives.md`. This file is readable by ALL agents including the wildcard.
 
-7. **Run baseline on ALL holdout instances** (full seeds). Store results in `state/baseline_holdout.tsv` using the same TSV format as results.tsv with researcher_id="baseline". This is the ground truth — never overwrite this file.
+7. **Run baseline on ALL holdout instances** using the **original-seed** (NOT the seed you are evolving). Build from `original-seed/` and evaluate on all holdout instances with full seeds. Store results in `state/baseline_holdout.tsv` using the same TSV format as results.tsv with researcher_id="baseline". This is the ground truth — never overwrite this file. Phase 3 compares the evolved algorithm against this baseline.
 
 8. **Create initial assignments**: Write `state/assignments/r<id>.yaml` for each researcher with:
    ```yaml
@@ -274,8 +274,10 @@ The research report must be written so that a researcher with domain knowledge c
 5. **Experimental Setup** — Platform, compiler/interpreter version, optimization flags, benchmark instances (with source citation), evaluation methodology (number of seeds, timeout per run, total runs), and metrics reported. **Must match or exceed the original paper's evaluation rigor.** If the original paper ran 10 trials, run at least 10. If it tested on 20 instances, test on at least 20.
 
 6. **Results** — Present in the **same table format** as the original paper where possible:
-   - Table: per-instance results showing Original Paper's results, Our Baseline (same seed, our hardware), Our Evolved (our hardware)
-   - This three-column comparison accounts for hardware differences
+   - The primary comparison is ALWAYS: **original seed** vs **evolved algorithm**
+   - Table: per-instance results showing Original Paper's results (if available), Our Original Seed (`original-seed/` on our hardware), Our Evolved (our hardware)
+   - The original-seed column accounts for hardware differences vs the paper's reported numbers
+   - If this is NOT the first iteration, add an Initial Seed column (`seed/` before this iteration's changes) to show incremental vs cumulative improvement
    - Include: best objective value, average objective value, gap to optimal/best-known (%), number of optimal solutions found
    - Per-seed breakdown for instances with high variance
    - Aggregate statistics across all instances
