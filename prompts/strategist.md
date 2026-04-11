@@ -98,6 +98,8 @@ LOOP FOREVER:
 
 3. **Redirect based on results**: After each composition or every 5 new results.tsv entries, actively update researcher directions:
 
+   **Per-seed analysis for high-variance results**: When a researcher reports results with multiple seeds, check for high variance. If the range between best and worst seed exceeds 2x the mean improvement, flag it. Break down which seeds benefit from the change and which don't. This can reveal that a change helps on some problem structures but hurts on others — useful for deciding whether to compose it. Include per-seed breakdowns in the strategist log when variance is high.
+
    **Amplify what works**: If a researcher's keep shows a promising direction (e.g., "speed optimizations reduce per-trial time"), update their assignment to explore that direction more deeply. Add specific follow-up ideas based on the successful change.
 
    **Redirect away from dead ends**: If a researcher's keeps get rejected at composition (e.g., "too expensive for large instances"), update their assignment with this constraint. Don't let them keep exploring variations of a rejected approach.

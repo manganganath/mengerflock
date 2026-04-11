@@ -136,18 +136,18 @@ evaluation:
   random_seeds: [42, 123, 456, 789, 1024]
 
 agents:
-  tool: "claude"
+  tool: "claude"                      # coding agent CLI (claude, codex, etc.)
   strategist:
-    model_flags: "--model opus"
+    model_flags: "--model opus"       # strongest model — does domain research, composition reasoning, report writing
   researchers:
     # count is optional — if omitted, the orchestrator counts the assignment files
     # the strategist creates in Phase 1 (one per researcher it plans to use).
     # If no assignments exist yet, defaults to one researcher per module.
     # count: 3
-    model_flags: "--model sonnet"
+    model_flags: "--model sonnet"     # fast, cost-efficient — researchers do focused edit-test loops
     max_iterations_per_assignment: 20
   wildcard:                           # optional
-    model_flags: "--model opus"
+    model_flags: "--model opus"       # strongest model — wildcard has no guidance, needs strong reasoning
 
 stopping_conditions:
   max_total_iterations: 500
@@ -242,6 +242,18 @@ The strategist writes `report/experimentation-report.md` covering what was tried
 # Reset experiment state (removes state/, .worktrees/, report/, experiment branches)
 mengerflock clean
 ```
+
+### Model Selection
+
+Different agent roles have different reasoning requirements. Use the strongest available model where judgment matters most, and faster/cheaper models for mechanical work.
+
+| Role | Recommended | Why |
+|---|---|---|
+| **Strategist** | Most capable (e.g., opus) | Domain research, composition reasoning, cross-pollination decisions, report writing. The strategist's judgment drives the entire experiment. |
+| **Researchers** | Fast and capable (e.g., sonnet) | Focused edit-test loops on assigned modules. Speed matters — more experiments per hour means more coverage. |
+| **Wildcard** | Most capable (e.g., opus) | No guidance from strategist, no domain context, no web search. Must reason about the code from first principles. Stronger models produce more creative hypotheses. |
+
+If budget is limited, prioritize the strategist — a weak strategist with strong researchers wastes the researchers' output on poor composition decisions. A strong strategist with weaker researchers can still extract value through good direction-setting.
 
 ### Tips
 
