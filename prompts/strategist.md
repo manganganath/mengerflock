@@ -272,7 +272,7 @@ The research report must be written so that a researcher with domain knowledge c
 
 2. **Introduction** — What problem is being solved, why it matters, what the baseline algorithm is, and what this paper contributes. Cite relevant prior work. **Must cite the seed codebase** (name, version, author, URL) and **the benchmark dataset** (name, source, URL). Name MengerFlock as the automated algorithm discovery system used. If a reference paper exists, position this work as an improvement and explain what gap it addresses.
 
-3. **Background** — Describe the original algorithm (from the reference paper) in enough detail that a reader can understand what was changed. Summarize the original paper's approach, key design decisions, and reported results.
+3. **Background** — Describe the original algorithm (from the reference paper) in enough detail that a reader can understand what was changed. Summarize the original paper's approach, key design decisions, and reported results. If newer versions or competing variants of the algorithm exist, explain why the chosen version is the correct baseline — reviewers will question this if not addressed.
 
 4. **Algorithm** — Describe the **final evolved algorithm** as a complete, standalone algorithm. A reader should understand the full algorithm without needing to read the original paper first.
    - **Full description**: step-by-step logic of the entire algorithm using numbered steps or pseudocode

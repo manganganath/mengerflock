@@ -15,7 +15,9 @@ LKH-2.0.10 [1] achieves remarkable performance out of the box, finding optimal t
 3. **Sparse candidate sets** where alpha-nearest edges alone may miss geometrically obvious connections
 4. **Underutilized trial budget** where the default MaxTrials = Dimension completes well before the available timeout for large instances
 
-We address each of these with targeted modifications that preserve LKH's architecture while improving its effectiveness on large instances. All changes are backward-compatible: small instances (< 1000 nodes) are unaffected.
+We note that Helsgaun released LKH-3 [2] in 2017, which extends LKH to handle asymmetric TSP, constrained vehicle routing (CVRP, PDPTW), and other variants. However, for pure symmetric EUC_2D TSP — the focus of this work — LKH-3's core search and subgradient optimization are unchanged from LKH-2, and the two produce identical results on symmetric instances. LKH-2.0.10 is therefore the correct baseline for this problem class.
+
+We address each of the above weaknesses with targeted modifications that preserve LKH's architecture while improving its effectiveness on large instances. All changes are backward-compatible: small instances (< 1000 nodes) are unaffected. The improvements were discovered by MengerFlock [3], a hierarchical multi-agent system for automated algorithm discovery.
 
 ## 2. Algorithm
 
@@ -361,6 +363,12 @@ timeout 600 ./LKH params.par
 
 [1] K. Helsgaun, "General k-opt submoves for the Lin-Kernighan TSP heuristic," *Mathematical Programming Computation*, vol. 1, no. 2-3, pp. 119-163, 2009.
 
-[2] S. Lin and B. W. Kernighan, "An effective heuristic algorithm for the traveling-salesman problem," *Operations Research*, vol. 21, no. 2, pp. 498-516, 1973.
+[2] K. Helsgaun, "An extension of the Lin-Kernighan-Helsgaun TSP solver for constrained traveling salesman and vehicle routing problems," Technical report, Roskilde University, 2017. (LKH-3)
 
-[3] M. Held and R. M. Karp, "The traveling-salesman problem and minimum spanning trees," *Operations Research*, vol. 18, no. 6, pp. 1138-1162, 1970.
+[3] N. Ganganath, "MengerFlock: A hierarchical multi-agent system that evolves algorithms through autonomous experimentation," 2026. https://github.com/manganganath/mengerflock
+
+[4] S. Lin and B. W. Kernighan, "An effective heuristic algorithm for the traveling-salesman problem," *Operations Research*, vol. 21, no. 2, pp. 498-516, 1973.
+
+[5] M. Held and R. M. Karp, "The traveling-salesman problem and minimum spanning trees," *Operations Research*, vol. 18, no. 6, pp. 1138-1162, 1970.
+
+[6] G. Reinelt, "TSPLIB — A traveling salesman problem library," *ORSA Journal on Computing*, vol. 3, no. 4, pp. 376-384, 1991.
