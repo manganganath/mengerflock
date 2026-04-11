@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import shlex
 import signal
 import subprocess
 import time
@@ -60,6 +59,10 @@ def check_stopping_conditions(
         return True, f"Max hours reached ({sc.max_hours}h)"
 
     # Target improvement
+    # NOTE: Uses the first "keep" result as the baseline rather than baseline_holdout.
+    # This is a rough heuristic — it measures improvement within the research loop,
+    # not against the true pre-experiment baseline. The strategist performs the
+    # definitive holdout comparison in Phase 3.
     keep_results = [r for r in results if r["status"] == "keep"]
     if keep_results:
         best_avg = min(float(r["metric_avg"]) for r in keep_results)
@@ -79,6 +82,14 @@ def check_stopping_conditions(
     return False, ""
 
 
+def _safe_symlink(link: Path, target: Path) -> None:
+    """Create a symlink, ignoring if it already exists."""
+    try:
+        link.symlink_to(target)
+    except FileExistsError:
+        pass
+
+
 class Orchestrator:
     def __init__(self, project_dir: Path, config: MengerFlockConfig):
         self.project_dir = project_dir.resolve()
@@ -86,6 +97,19 @@ class Orchestrator:
         self.state_dir = project_dir / "state"
         self.start_time = time.time()
         self._shutdown = False
+
+    def _ensure_clean_tmux_session(self) -> None:
+        """Kill any existing mengerflock tmux session, then create a fresh one."""
+        subprocess.run(
+            ["tmux", "kill-session", "-t", "mengerflock"],
+            capture_output=True, check=False,
+        )
+        result = subprocess.run(
+            ["tmux", "new-session", "-d", "-s", "mengerflock"],
+            capture_output=True, text=True,
+        )
+        if result.returncode != 0:
+            raise RuntimeError(f"Failed to create tmux session: {result.stderr}")
 
     def _handle_signal(self, signum, frame):
         self._shutdown = True
@@ -100,12 +124,15 @@ class Orchestrator:
         model_flags = self.config.agents.strategist.model_flags
 
         # Create tmux window with interactive claude
-        subprocess.run([
-            "tmux", "new-window", "-t", "mengerflock",
-            "-n", "strategist",
-            "-c", str(self.project_dir),
-            f"{tool} {model_flags} --allowedTools 'Edit,Write,Bash,Read,Glob,Grep,WebSearch,WebFetch'"
-        ], check=True)
+        try:
+            subprocess.run([
+                "tmux", "new-window", "-t", "mengerflock",
+                "-n", "strategist",
+                "-c", str(self.project_dir),
+                f"{tool} {model_flags} --allowedTools 'Edit,Write,Bash,Read,Glob,Grep,WebSearch,WebFetch'"
+            ], check=True, capture_output=True, text=True)
+        except subprocess.CalledProcessError as e:
+            raise RuntimeError(f"Failed to launch strategist: {e.stderr}") from e
 
         # Wait for claude to start, then send the prompt
         time.sleep(3)
@@ -116,10 +143,13 @@ class Orchestrator:
             "Eval script is eval.sh. "
             "After initialization, enter Phase 2 and monitor continuously."
         )
-        subprocess.run([
-            "tmux", "send-keys", "-t", "mengerflock:strategist",
-            prompt, "Enter"
-        ], check=True)
+        try:
+            subprocess.run([
+                "tmux", "send-keys", "-t", "mengerflock:strategist",
+                prompt, "Enter"
+            ], check=True, capture_output=True, text=True)
+        except subprocess.CalledProcessError as e:
+            raise RuntimeError(f"Failed to send keys to strategist: {e.stderr}") from e
 
     def launch_researcher(self, researcher_id: str, module_name: str) -> None:
         wt_path = self.project_dir / ".worktrees" / researcher_id
@@ -129,26 +159,27 @@ class Orchestrator:
             create_worktree(self.project_dir, wt_path, branch)
 
         # Create symlinks (use absolute paths)
-        state_link = wt_path / "state"
-        if not state_link.exists():
-            state_link.symlink_to(self.state_dir.resolve())
+        _safe_symlink(wt_path / "state", self.state_dir.resolve())
 
         for name in ["eval.sh", "datasets", "researcher.md"]:
             link = wt_path / name
             src = self.project_dir / name
-            if src.exists() and not link.exists():
-                link.symlink_to(src.resolve())
+            if src.exists():
+                _safe_symlink(link, src.resolve())
 
         tool = self.config.agents.tool
         model_flags = self.config.agents.researchers.model_flags
 
         # Create tmux window
-        subprocess.run([
-            "tmux", "new-window", "-t", "mengerflock",
-            "-n", researcher_id,
-            "-c", str(wt_path),
-            f"{tool} {model_flags} --allowedTools 'Edit,Write,Bash,Read,Glob,Grep,WebSearch,WebFetch'"
-        ], check=True)
+        try:
+            subprocess.run([
+                "tmux", "new-window", "-t", "mengerflock",
+                "-n", researcher_id,
+                "-c", str(wt_path),
+                f"{tool} {model_flags} --allowedTools 'Edit,Write,Bash,Read,Glob,Grep,WebSearch,WebFetch'"
+            ], check=True, capture_output=True, text=True)
+        except subprocess.CalledProcessError as e:
+            raise RuntimeError(f"Failed to launch {researcher_id}: {e.stderr}") from e
 
         # Wait then send prompt
         time.sleep(3)
@@ -157,10 +188,13 @@ class Orchestrator:
             f"Your researcher ID is {researcher_id}. "
             f"State, datasets, and eval.sh are symlinked in your working directory."
         )
-        subprocess.run([
-            "tmux", "send-keys", "-t", f"mengerflock:{researcher_id}",
-            prompt, "Enter"
-        ], check=True)
+        try:
+            subprocess.run([
+                "tmux", "send-keys", "-t", f"mengerflock:{researcher_id}",
+                prompt, "Enter"
+            ], check=True, capture_output=True, text=True)
+        except subprocess.CalledProcessError as e:
+            raise RuntimeError(f"Failed to send keys to {researcher_id}: {e.stderr}") from e
 
     def monitor_phase2(self, poll_interval: float = 30.0) -> str:
         """Monitor Phase 2. Returns reason for exit: 'stopping', 'phase2_complete', 'shutdown', 'exited'."""
@@ -176,6 +210,7 @@ class Orchestrator:
             )
             if triggered:
                 print(f"Stopping condition met: {reason}")
+                write_shutdown_flag(self.state_dir)  # tell researchers to stop
                 return "stopping"
 
             if is_shutdown_requested(self.state_dir):
@@ -263,8 +298,7 @@ class Orchestrator:
                 remove_worktree(self.project_dir, wt_path)
             self.launch_researcher(rid, module.name)
 
-        wildcard = getattr(self.config.agents, 'wildcard', None)
-        if wildcard:
+        if self.config.agents.wildcard:
             wt_path = self.project_dir / ".worktrees" / "w1"
             if wt_path.exists():
                 from mengerflock.worktree import remove_worktree
@@ -312,8 +346,7 @@ class Orchestrator:
             module = self.config.modules[i % len(self.config.modules)]
             self.launch_researcher(rid, module.name)
 
-        wildcard = getattr(self.config.agents, 'wildcard', None)
-        if wildcard:
+        if self.config.agents.wildcard:
             self.launch_wildcard()
 
     def run(self) -> None:
@@ -321,8 +354,8 @@ class Orchestrator:
         max_reentries = self.config.stopping_conditions.max_reentries
         reentry_count = 0
 
-        # Create tmux session
-        subprocess.run(["tmux", "new-session", "-d", "-s", "mengerflock"], check=False)
+        # Create tmux session (kill any stale session first to avoid collision)
+        self._ensure_clean_tmux_session()
 
         # === Phase 1: Strategist researches, presents plan, waits for user approval ===
         print("=== Phase 1: Strategist initialization ===")
@@ -380,34 +413,34 @@ class Orchestrator:
         wt_state = wt_path / "state"
         wt_state.mkdir(exist_ok=True)
 
-        results_link = wt_state / "results.tsv"
-        if not results_link.exists():
-            results_link.symlink_to((self.state_dir / "results.tsv").resolve())
+        _safe_symlink(wt_state / "results.tsv", (self.state_dir / "results.tsv").resolve())
 
         # Shutdown detection — symlink the shutdown flag location
         # (wildcard checks if state/shutdown exists)
 
-        objectives_link = wt_path / "objectives.md"
         objectives_src = self.state_dir / "objectives.md"
-        if objectives_src.exists() and not objectives_link.exists():
-            objectives_link.symlink_to(objectives_src.resolve())
+        if objectives_src.exists():
+            _safe_symlink(wt_path / "objectives.md", objectives_src.resolve())
 
         for name in ["eval.sh", "datasets", "wildcard.md"]:
             link = wt_path / name
             src = self.project_dir / name
-            if src.exists() and not link.exists():
-                link.symlink_to(src.resolve())
+            if src.exists():
+                _safe_symlink(link, src.resolve())
 
         tool = self.config.agents.tool
         wildcard_cfg = self.config.agents.wildcard
         model_flags = wildcard_cfg.model_flags
 
-        subprocess.run([
-            "tmux", "new-window", "-t", "mengerflock",
-            "-n", "w1",
-            "-c", str(wt_path),
-            f"{tool} {model_flags} --allowedTools 'Edit,Write,Bash,Read,Glob,Grep'"
-        ], check=True)
+        try:
+            subprocess.run([
+                "tmux", "new-window", "-t", "mengerflock",
+                "-n", "w1",
+                "-c", str(wt_path),
+                f"{tool} {model_flags} --allowedTools 'Edit,Write,Bash,Read,Glob,Grep'"
+            ], check=True, capture_output=True, text=True)
+        except subprocess.CalledProcessError as e:
+            raise RuntimeError(f"Failed to launch w1: {e.stderr}") from e
 
         time.sleep(3)
         prompt = (
@@ -416,7 +449,10 @@ class Orchestrator:
             "Your ID is w1. "
             "Datasets and eval.sh are in your working directory."
         )
-        subprocess.run([
-            "tmux", "send-keys", "-t", "mengerflock:w1",
-            prompt, "Enter"
-        ], check=True)
+        try:
+            subprocess.run([
+                "tmux", "send-keys", "-t", "mengerflock:w1",
+                prompt, "Enter"
+            ], check=True, capture_output=True, text=True)
+        except subprocess.CalledProcessError as e:
+            raise RuntimeError(f"Failed to send keys to w1: {e.stderr}") from e

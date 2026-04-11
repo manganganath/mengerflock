@@ -89,6 +89,35 @@ def stop():
 
 
 @main.command()
+@click.option("--force", is_flag=True, help="Skip confirmation")
+def clean(force: bool):
+    """Remove all experiment state (state/, .worktrees/, report/, experiment branches)."""
+    project_dir = Path.cwd()
+
+    if not force:
+        click.confirm("This will delete state/, .worktrees/, report/, and experiment branches. Continue?", abort=True)
+
+    import shutil
+    for d in ["state", ".worktrees", "report"]:
+        p = project_dir / d
+        if p.exists():
+            shutil.rmtree(p)
+            click.echo(f"Removed {d}/")
+
+    # Remove experiment branches
+    from mengerflock.worktree import _git
+    result = _git(project_dir, "branch", "--list", check=False)
+    if result.returncode == 0:
+        for line in result.stdout.splitlines():
+            branch = line.strip().lstrip("* ")
+            if branch.startswith(("module/", "wildcard/", "researcher/", "crosspollin/")):
+                _git(project_dir, "branch", "-D", branch, check=False)
+                click.echo(f"Deleted branch {branch}")
+
+    click.echo("Clean complete.")
+
+
+@main.command()
 def report():
     """Generate report from experiment results."""
     state_dir = Path.cwd() / "state"
