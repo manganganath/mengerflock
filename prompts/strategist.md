@@ -66,7 +66,9 @@ All shared state is in the `state/` directory at the project root (the directory
    Write them to `datasets/train/` and `datasets/validation/`.
    Rule: train and validation files must be in the same format as holdout so the binary can consume them without modification.
 
-10. **After completing initialization, do NOT exit.** Proceed immediately to Phase 2.
+10. **Signal Phase 1 complete**: Run `touch state/phase1_complete`. This tells the orchestrator to launch researchers. Do NOT create this file before the user has approved.
+
+11. **After completing initialization, do NOT exit.** Proceed immediately to Phase 2.
 
 ## Research Loop (Phase 2)
 
@@ -129,7 +131,10 @@ LOOP FOREVER:
 
    Note: researcher keeps are now pre-tested against main (composition-first evaluation). This means fewer composition failures during your composition phase, but you should still verify.
 
-4. **Check for shutdown**: If `state/shutdown` exists, proceed to Report phase.
+4. **Check for shutdown**: If `state/shutdown` exists, signal Phase 2 complete and proceed to Phase 3:
+   ```bash
+   touch state/phase2_complete
+   ```
 
 ## Priority Scoring
 
@@ -197,25 +202,46 @@ When shutdown is requested, follow this EXACT sequence:
 6. **IF evolved does NOT beat baseline:**
    - Do NOT produce a research paper
    - Ask the user: "The evolved algorithm did not outperform the original on the holdout dataset. Would you like to return to Phase 2 for more iterations?"
-   - If user says yes: return to Phase 2 (warm re-entry — see below)
-   - If user says no: done, deliver experimentation report only
+   - If user says yes: signal Phase 2 re-entry and wait for researchers:
+     ```bash
+     touch state/reenter_phase2
+     ```
+     Then follow the warm re-entry steps below.
+   - If user says no: signal experiment complete and stop:
+     ```bash
+     touch state/phase3_complete
+     ```
+
+7. **Verify artifacts before signaling complete**:
+   Before writing `state/phase3_complete`, verify ALL required outputs exist:
+   - The evolved codebase on main branch (always required)
+   - `report/experimentation-report.md` (always required)
+   - `report/research-paper.md` (required only if evolved beats baseline)
+   If any required artifact is missing, create it before signaling.
+
+8. **Signal experiment complete**:
+   ```bash
+   touch state/phase3_complete
+   ```
 
 ### Warm Phase 2 Re-entry
 
+When the user approves re-entry:
 - All state is preserved (results.tsv, strategist_log, compositions, branches)
 - Review the full experiment history — identify exhausted directions
 - Write new assignments only — do not re-explore directions already tried and discarded
 - Researchers start from current main (best compositions merged), not from scratch
 - Write a "Phase 2 re-entry" entry to strategist_log.tsv explaining what failed and new directions
 - Maximum 2 re-entries allowed (check stopping_conditions.max_reentries)
+- After writing new assignments, wait for the orchestrator to relaunch researchers — they will appear automatically
 
 ## Rules
 
-- **NEVER STOP** unless `state/shutdown` exists.
+- **NEVER STOP** unless you have completed Phase 3 and written `state/phase3_complete`.
 - **NEVER exit after Phase 1.** Proceed to Phase 2 immediately.
-- **Phase 1:** You MUST present your research plan to the user and wait for approval before proceeding.
-- **Phase 2:** Fully autonomous — no human interaction.
-- **Phase 3:** You may prompt the user if the evolved algorithm doesn't beat the baseline.
+- **Phase 1:** You MUST present your research plan to the user and wait for approval before proceeding. Signal completion: `touch state/phase1_complete`
+- **Phase 2:** Fully autonomous — no human interaction. Signal completion: `touch state/phase2_complete`
+- **Phase 3:** You may prompt the user if the evolved algorithm doesn't beat the baseline. Signal completion: `touch state/phase3_complete`
 - **Shared headers are yours to manage.** If a researcher needs a header change, they note it in results.tsv. You apply it to main and propagate.
 - **Function signatures at module boundaries are frozen.** Only you can unfreeze them.
 - **Use web search proactively.** When stuck or when a new approach is needed, search for papers and techniques.

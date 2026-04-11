@@ -12,6 +12,9 @@ from mengerflock.state import (
     read_results,
     write_shutdown_flag,
     is_shutdown_requested,
+    is_phase1_complete,
+    is_phase2_complete,
+    is_phase3_complete,
 )
 from mengerflock.worktree import create_branch, create_worktree
 
@@ -159,15 +162,24 @@ class Orchestrator:
             prompt, "Enter"
         ], check=True)
 
-    def monitor(self, poll_interval: float = 30.0) -> None:
+    def monitor_phase2(self, poll_interval: float = 30.0) -> str:
+        """Monitor Phase 2. Returns reason for exit: 'stopping', 'phase2_complete', 'shutdown', 'exited'."""
         while not self._shutdown:
+            # Check if strategist signaled Phase 2 complete (ready for Phase 3)
+            if is_phase2_complete(self.state_dir):
+                print("Strategist signaled Phase 2 complete. Entering Phase 3.")
+                return "phase2_complete"
+
+            # Check stopping conditions
             triggered, reason = check_stopping_conditions(
                 self.state_dir, self.config, self.start_time,
             )
             if triggered:
-                print(f"Stopping: {reason}")
-                self.shutdown()
-                return
+                print(f"Stopping condition met: {reason}")
+                return "stopping"
+
+            if is_shutdown_requested(self.state_dir):
+                return "shutdown"
 
             # Check if tmux session still has windows
             result = subprocess.run(
@@ -176,9 +188,88 @@ class Orchestrator:
             )
             if result.returncode != 0:
                 print("All sessions have exited")
-                return
+                return "exited"
 
             time.sleep(poll_interval)
+        return "shutdown"
+
+    def wait_for_phase3(self, poll_interval: float = 10.0) -> str:
+        """Wait for strategist to complete Phase 3.
+        Returns: 'complete', 'reenter_phase2', or 'shutdown'."""
+        print("Phase 3: Strategist is evaluating holdout and writing reports...")
+        while not self._shutdown:
+            if is_phase3_complete(self.state_dir):
+                print("Phase 3 complete. Experiment finished.")
+                return "complete"
+
+            # Check if strategist requests Phase 2 re-entry
+            reentry_path = self.state_dir / "reenter_phase2"
+            if reentry_path.exists():
+                reentry_path.unlink()  # consume the signal
+                print("Strategist requests Phase 2 re-entry.")
+                return "reenter_phase2"
+
+            # Check if tmux session still alive
+            result = subprocess.run(
+                ["tmux", "list-windows", "-t", "mengerflock"],
+                capture_output=True, check=False
+            )
+            if result.returncode != 0:
+                return "shutdown"
+
+            time.sleep(poll_interval)
+        return "shutdown"
+
+    def stop_researchers(self) -> None:
+        """Stop researcher and wildcard windows, keep strategist alive."""
+        write_shutdown_flag(self.state_dir)
+
+        result = subprocess.run(
+            ["tmux", "list-windows", "-t", "mengerflock", "-F", "#{window_name}"],
+            capture_output=True, text=True, check=False
+        )
+        if result.returncode == 0:
+            for window in result.stdout.strip().split('\n'):
+                if window and window != "strategist":
+                    subprocess.run([
+                        "tmux", "send-keys", "-t", f"mengerflock:{window}",
+                        "/exit", "Enter"
+                    ], check=False)
+
+    def relaunch_researchers(self) -> None:
+        """Relaunch researchers for Phase 2 re-entry. Clean up old worktrees first."""
+        # Remove shutdown flag so researchers don't immediately exit
+        shutdown_path = self.state_dir / "shutdown"
+        if shutdown_path.exists():
+            shutdown_path.unlink()
+
+        # Clear phase signals
+        for f in ["phase2_complete", "phase3_complete"]:
+            p = self.state_dir / f
+            if p.exists():
+                p.unlink()
+
+        count = self.config.agents.researchers.count
+        if count is None:
+            count = len(self.config.modules)
+
+        for i in range(count):
+            rid = f"r{i + 1}"
+            module = self.config.modules[i % len(self.config.modules)]
+            # Clean up old worktree
+            wt_path = self.project_dir / ".worktrees" / rid
+            if wt_path.exists():
+                from mengerflock.worktree import remove_worktree
+                remove_worktree(self.project_dir, wt_path)
+            self.launch_researcher(rid, module.name)
+
+        wildcard = getattr(self.config.agents, 'wildcard', None)
+        if wildcard:
+            wt_path = self.project_dir / ".worktrees" / "w1"
+            if wt_path.exists():
+                from mengerflock.worktree import remove_worktree
+                remove_worktree(self.project_dir, wt_path)
+            self.launch_wildcard()
 
     def shutdown(self, keep_strategist: bool = False) -> None:
         self._shutdown = True
@@ -196,15 +287,22 @@ class Orchestrator:
                         "/exit", "Enter"
                     ], check=False)
 
-    def run(self) -> None:
-        self.setup_signal_handlers()
+    def wait_for_phase1(self, poll_interval: float = 10.0) -> bool:
+        """Wait for strategist to complete Phase 1 (user approval gate).
+        Returns True if Phase 1 completed, False if shutdown was requested."""
+        print("Waiting for strategist to complete Phase 1 (user approval)...")
+        while not self._shutdown:
+            if is_phase1_complete(self.state_dir):
+                print("Phase 1 complete. Launching researchers.")
+                return True
+            if is_shutdown_requested(self.state_dir):
+                print("Shutdown requested during Phase 1.")
+                return False
+            time.sleep(poll_interval)
+        return False
 
-        # Create tmux session
-        subprocess.run(["tmux", "new-session", "-d", "-s", "mengerflock"], check=False)
-
-        self.launch_strategist()
-
-        # Default: one researcher per module. User can override with count in config.
+    def launch_all_researchers(self) -> None:
+        """Launch all researcher and wildcard windows."""
         count = self.config.agents.researchers.count
         if count is None:
             count = len(self.config.modules)
@@ -214,12 +312,61 @@ class Orchestrator:
             module = self.config.modules[i % len(self.config.modules)]
             self.launch_researcher(rid, module.name)
 
-        # Launch wildcard if configured
         wildcard = getattr(self.config.agents, 'wildcard', None)
         if wildcard:
             self.launch_wildcard()
 
-        self.monitor()
+    def run(self) -> None:
+        self.setup_signal_handlers()
+        max_reentries = self.config.stopping_conditions.max_reentries
+        reentry_count = 0
+
+        # Create tmux session
+        subprocess.run(["tmux", "new-session", "-d", "-s", "mengerflock"], check=False)
+
+        # === Phase 1: Strategist researches, presents plan, waits for user approval ===
+        print("=== Phase 1: Strategist initialization ===")
+        self.launch_strategist()
+
+        if not self.wait_for_phase1():
+            return
+
+        # === Phase 2: Researchers evolve the codebase ===
+        while True:
+            print(f"=== Phase 2: Research loop (attempt {reentry_count + 1}) ===")
+            self.launch_all_researchers()
+
+            exit_reason = self.monitor_phase2()
+
+            # Stop researchers, keep strategist alive for Phase 3
+            self.stop_researchers()
+
+            if exit_reason == "exited" or exit_reason == "shutdown":
+                print("Experiment ended.")
+                return
+
+            # === Phase 3: Strategist evaluates holdout and writes reports ===
+            print("=== Phase 3: Evaluation and reporting ===")
+            phase3_result = self.wait_for_phase3()
+
+            if phase3_result == "complete":
+                print("Experiment complete. Shutting down.")
+                self.shutdown()
+                return
+
+            if phase3_result == "reenter_phase2":
+                reentry_count += 1
+                if reentry_count >= max_reentries:
+                    print(f"Max re-entries reached ({max_reentries}). Finishing.")
+                    self.shutdown()
+                    return
+                print(f"Re-entering Phase 2 (attempt {reentry_count + 1}/{max_reentries + 1})...")
+                self.relaunch_researchers()
+                continue
+
+            # shutdown or unexpected
+            self.shutdown()
+            return
 
     def launch_wildcard(self) -> None:
         wt_path = self.project_dir / ".worktrees" / "w1"

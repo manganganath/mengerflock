@@ -46,7 +46,7 @@ Any codebase where you can compile, run against benchmarks, and get a number bac
 
 | Domain | Examples |
 |---|---|
-| **Combinatorial Optimization** | Graph search, graph coloring, bin packing, scheduling |
+| **Combinatorial Optimization** | Graph search, graph coloring, bin packing, job scheduling |
 | **Search & Solvers** | SAT solvers, constraint satisfaction, branch-and-bound, local search frameworks |
 | **Numerical Computing** | Matrix multiplication kernels, sorting algorithms, compression, signal processing |
 | **ML Training** | Neural network training loops, optimizer implementations, data augmentation |
@@ -259,26 +259,33 @@ MengerFlock uses a train/validation/holdout split to ensure improvements general
 | **Validation** | Strategist (separate set) | Strategist | Composition evaluation |
 | **Holdout** | User (provided in config) | Report phase only | Final evaluation, never seen during development |
 
-### Strategist Lifecycle
+### Phase Lifecycle
+
+MengerFlock runs in three phases with explicit gates between them. The orchestrator controls transitions; agents signal readiness via sentinel files in `state/`.
 
 ```mermaid
 stateDiagram-v2
     [*] --> Phase1: Launch
-    Phase1: Phase 1 - Initialize
-    Phase1 --> Phase2: Assignments created
+    Phase1: Phase 1 — Initialize
+    Phase1 --> Phase2: User approves plan (phase1_complete)
 
-    Phase2: Phase 2 - Research Loop
+    Phase2: Phase 2 — Research Loop
     Phase2 --> Phase2: Monitor, compose, redirect
 
-    Phase2 --> Phase3: Shutdown signal
+    Phase2 --> Phase3: Stopping condition or phase2_complete
 
-    Phase3: Phase 3 - Report
-    Phase3 --> [*]: Done
+    Phase3: Phase 3 — Evaluate & Report
+    Phase3 --> [*]: phase3_complete
+    Phase3 --> Phase2: User approves re-entry (reenter_phase2)
 
     state Phase1 {
         [*] --> Research: Web search domain
-        Research --> Analyze: Read codebase
-        Analyze --> Baseline: Quick baseline (1 seed, small)
+        Research --> ReadPaper: Read reference paper (if provided)
+        ReadPaper --> Analyze: Read codebase
+        Analyze --> Present: Present research plan to user
+        Present --> WaitApproval: WAIT for user approval
+        WaitApproval --> WriteObjectives: Write state/objectives.md
+        WriteObjectives --> Baseline: Run baseline on ALL holdout instances
         Baseline --> Generate: Generate train/validation datasets
         Generate --> Assign: Create researcher assignments
     }
@@ -291,7 +298,30 @@ stateDiagram-v2
         Monitor --> Stagnation: 3+ consecutive failures
         Stagnation --> Redirect: Reframe, widen scope, or reassign
     }
+
+    state Phase3 {
+        [*] --> HoldoutEval: Run holdout evaluation
+        HoldoutEval --> Compare: Compare vs baseline
+        Compare --> WriteExpReport: Write experimentation report (always)
+        WriteExpReport --> BeatBaseline: Evolved beats baseline?
+        BeatBaseline --> WriteResearchPaper: Yes — write research paper
+        BeatBaseline --> AskUser: No — ask user to re-enter Phase 2
+        WriteResearchPaper --> VerifyArtifacts: Verify all outputs exist
+        AskUser --> ReenterOrDone: User decides
+        VerifyArtifacts --> Done: Signal phase3_complete
+    }
 ```
+
+**Phase 1 → Phase 2 gate:** The strategist presents its research plan (domain findings, objectives, module decomposition, assignments) to the user and waits for explicit approval. Researchers are NOT launched until the user approves. The strategist signals readiness by writing `state/phase1_complete`.
+
+**Phase 2 → Phase 3 gate:** Phase 2 ends when stopping conditions are met (max iterations, max hours, stagnation) or the strategist signals `state/phase2_complete`. The orchestrator stops all researcher and wildcard windows but keeps the strategist alive.
+
+**Phase 3 → Done (or Phase 2 re-entry):** The strategist runs holdout evaluation, writes reports, and verifies all artifacts. If the evolved algorithm beats the baseline, it produces a research paper and signals `state/phase3_complete`. If not, it asks the user whether to re-enter Phase 2. The user must approve re-entry — it is not automatic. Maximum re-entries is configurable (`stopping_conditions.max_reentries`, default 2).
+
+**Required outputs verified before completion:**
+- Evolved codebase on main branch (always)
+- `report/experimentation-report.md` (always)
+- `report/research-paper.md` (only if evolved beats baseline)
 
 ### Composition Strategy
 

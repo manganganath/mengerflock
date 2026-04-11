@@ -82,6 +82,30 @@ def read_assignment(state_dir: str | Path, researcher_id: str) -> dict:
     return yaml.safe_load(path.read_text())
 
 
+def write_phase1_complete(state_dir: str | Path) -> None:
+    (Path(state_dir) / "phase1_complete").touch()
+
+
+def is_phase1_complete(state_dir: str | Path) -> bool:
+    return (Path(state_dir) / "phase1_complete").exists()
+
+
+def write_phase2_complete(state_dir: str | Path) -> None:
+    (Path(state_dir) / "phase2_complete").touch()
+
+
+def is_phase2_complete(state_dir: str | Path) -> bool:
+    return (Path(state_dir) / "phase2_complete").exists()
+
+
+def write_phase3_complete(state_dir: str | Path) -> None:
+    (Path(state_dir) / "phase3_complete").touch()
+
+
+def is_phase3_complete(state_dir: str | Path) -> bool:
+    return (Path(state_dir) / "phase3_complete").exists()
+
+
 def write_shutdown_flag(state_dir: str | Path) -> None:
     (Path(state_dir) / "shutdown").touch()
 
