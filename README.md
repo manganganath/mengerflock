@@ -463,6 +463,20 @@ mengerflock/
 └── tests/
 ```
 
+## Citation
+
+If you use MengerFlock in your research, please cite it:
+
+```bibtex
+@software{ganganath2026mengerflock,
+  author = {Ganganath, Nuwan},
+  title = {MengerFlock: A Hierarchical Multi-Agent System for Automated Algorithm Discovery},
+  year = {2026},
+  url = {https://github.com/manganganath/mengerflock},
+  version = {0.2.0}
+}
+```
+
 ---
 
 MengerFlock honors Karl Menger, an early pioneer of combinatorial optimization and the Traveling Salesman Problem, and "flock" reflects a coordinated group of AI research agents working together under a lead strategist to evolve better algorithms.
