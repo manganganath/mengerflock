@@ -473,9 +473,6 @@ mengerflock/
 │   ├── researcher.md           # researcher agent instructions
 │   └── wildcard.md             # wildcard agent instructions
 └── projects/                    # experiment templates and results
-    ├── tsp/                    # template (gitignored): original-seed, holdout, paper
-    ├── tsp-experiment-1/       # experiment results (tracked): evolved seed, state, reports
-    └── binpacking-experiment-1/
 ```
 
 ## Citation
