@@ -197,39 +197,78 @@ When shutdown is requested, follow this EXACT sequence:
 
 5. **IF evolved beats baseline on holdout:**
    - Produce research paper at `report/research-report.md`
-   - If the user provided a paper in config, mirror its format/structure
-   - If not, use standard academic format
    - The paper must be near-publication quality. Follow the guidelines below.
 
-### Research Paper Writing Guidelines
+### Phase 3 Evaluation: Challenging the Original Paper
 
-The research paper must be written so that a researcher with domain knowledge can **fully reproduce** the results without access to the source code. It is NOT a summary — it is the complete algorithmic specification.
+If a reference paper was provided in config (`project.paper`), the research report is not just a standalone document — it is a **direct challenge** to that paper. This means Phase 3 evaluation must be thorough:
+
+**Step 1: Study the original paper's evaluation methodology.**
+Read the reference paper carefully. Identify:
+- Which benchmark instances did they test on?
+- How many runs/seeds per instance?
+- What time budgets did they use?
+- What metrics did they report (average tour length, best tour length, gap to optimal, success rate)?
+- What tables and figures did they present?
+
+**Step 2: Reproduce the original paper's evaluation as closely as possible.**
+Run the evolved algorithm on the SAME instances, with the SAME (or comparable) evaluation protocol:
+- Same number of runs if feasible (or more for better statistics)
+- Same or comparable time budgets
+- Same metrics
+- If the paper tested on instances we don't have, note this as a limitation
+
+**Step 3: Run the ORIGINAL SEED (unmodified baseline) with the same protocol.**
+This gives a fair three-way comparison:
+- Original paper's reported results (from the paper)
+- Our baseline run (original seed on our hardware — accounts for hardware differences)
+- Our evolved algorithm (same hardware as baseline)
+
+**Step 4: Present results in the same format as the original paper.**
+If the original paper uses Table 3 to show per-instance results with columns (Instance, Optimum, Best, Avg, Time), create the same table structure with our results alongside. A reader should be able to look at both papers side by side.
+
+### Research Report Writing Guidelines
+
+The research report must be written so that a researcher with domain knowledge can **fully reproduce** the results without access to the source code. It is NOT a summary — it is the complete algorithmic specification. If a reference paper was provided, it must **directly challenge** that paper with comparable evaluation.
 
 **Required sections:**
 
-1. **Abstract** — One paragraph: problem, approach, key results (specific numbers), and significance.
+1. **Abstract** — One paragraph: problem, approach, key results (specific numbers), and significance. If challenging an existing paper, state clearly: "We improve upon [Author Year] by..."
 
-2. **Introduction** — What problem is being solved, why it matters, what the baseline algorithm is, and what this paper contributes. Cite relevant prior work. **Must cite the seed codebase** (name, version, author, URL) and **the benchmark dataset** (name, source, URL).
+2. **Introduction** — What problem is being solved, why it matters, what the baseline algorithm is, and what this paper contributes. Cite relevant prior work. **Must cite the seed codebase** (name, version, author, URL) and **the benchmark dataset** (name, source, URL). If a reference paper exists, position this work as an improvement and explain what gap it addresses.
 
-3. **Algorithm** — This is the core of the paper. For EVERY component of the evolved algorithm:
-   - **Exact logic**: step-by-step description of what the algorithm does, not just what it "tries to do." Use numbered steps or pseudocode.
-   - **All parameters**: every constant, threshold, iteration count, seed value, limit. A reader should be able to set every parameter from the paper alone.
-   - **Data structures**: what data structures are used and how they are maintained.
-   - **Subroutines**: if the algorithm calls helper functions, describe each one completely.
-   - **Complexity**: time and space complexity for each component.
-   - **Example**: where helpful, walk through a small example showing how the algorithm processes a specific input.
+3. **Background** — Describe the original algorithm (from the reference paper) in enough detail that a reader can understand what was changed. Summarize the original paper's approach, key design decisions, and reported results.
 
-   Think of it this way: if someone deleted the source code, they should be able to rewrite it from this section alone.
+4. **Algorithm** — This is the core of the paper. For EVERY modification made to the original algorithm:
+   - **What was changed**: which component, which file, which function
+   - **Why it was changed**: what weakness in the original was identified
+   - **Exact new logic**: step-by-step description using numbered steps or pseudocode
+   - **All parameters**: every constant, threshold, iteration count. A reader should be able to set every parameter from the paper alone.
+   - **Data structures**: any new or modified data structures
+   - **Complexity impact**: does this change affect time/space complexity?
 
-4. **Experimental Setup** — Platform, compiler/interpreter, benchmark description (instance sizes, distributions, capacity), evaluation methodology (seeds, timeout, number of runs), and how the lower bound is computed.
+   For unchanged components, state explicitly that they are unchanged. The reader must know exactly what is different from the original.
 
-5. **Results** — Table with per-instance results: baseline, evolved, lower bound, improvement. Include aggregate statistics (total, percentage gap closed). Per-seed results if multiple seeds used.
+   Think of it this way: if someone had the original paper and this paper, they should be able to apply all modifications without seeing the source code.
 
-6. **Analysis** — Which components contribute how much improvement. Ablation study if possible (what happens if you remove each component). Where the remaining gap is and why.
+5. **Experimental Setup** — Platform, compiler/interpreter version, optimization flags, benchmark instances (with source citation), evaluation methodology (number of seeds, timeout per run, total runs), and metrics reported. **Must match or exceed the original paper's evaluation rigor.** If the original paper ran 10 trials, run at least 10. If it tested on 20 instances, test on at least 20.
 
-7. **Limitations** — What the approach cannot do. Where it fails. What would be needed to close the remaining gap.
+6. **Results** — Present in the **same table format** as the original paper where possible:
+   - Table: per-instance results showing Original Paper's results, Our Baseline (same seed, our hardware), Our Evolved (our hardware)
+   - This three-column comparison accounts for hardware differences
+   - Include: best tour length, average tour length, gap to optimal (%), number of optimal solutions found
+   - Per-seed breakdown for instances with high variance
+   - Aggregate statistics across all instances
 
-8. **Reproducibility** — Exact command to run the solver. Input/output format. Dependencies. The complete diff against the original seed code (or the full evolved source if it's small enough to include).
+7. **Ablation Study** — Remove each modification one at a time and measure the impact. This shows which changes contribute how much. Present as a table: (All changes, Remove A, Remove B, Remove C, Original baseline).
+
+8. **Analysis** — Interpret the results. Which instances improved most and why? Which modifications are most impactful? Do the improvements scale with instance size? Are there instances where the evolved algorithm is worse? Why?
+
+9. **Limitations** — What the approach cannot do. Where it fails. What would be needed to close the remaining gap. How the evaluation differs from the original paper (if at all).
+
+10. **Reproducibility** — Exact command to run the solver. Input/output format. Compiler version and flags. Dependencies. The complete diff against the original seed code. If the diff is large, include it as an appendix.
+
+11. **References** — Cite the original paper, the seed codebase, the benchmark dataset, and any other relevant work.
 
 6. **IF evolved does NOT beat baseline:**
    - Do NOT produce a research paper
