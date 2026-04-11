@@ -15,7 +15,7 @@ from mengerflock.state import (
     is_phase2_complete,
     is_phase3_complete,
 )
-from mengerflock.worktree import create_branch, create_worktree, remove_worktree
+from mengerflock.worktree import create_branch, create_worktree, remove_worktree, ref_exists
 
 
 def is_seed_url(seed_path: str) -> bool:
@@ -413,7 +413,9 @@ class Orchestrator:
         wt_path = self.project_dir / ".worktrees" / "w1"
         branch = "wildcard/w1"
 
-        create_branch(self.project_dir, branch, start_point="baseline")
+        # Wildcard works from original seed — use baseline tag if it exists, else HEAD
+        start = "baseline" if ref_exists(self.project_dir, "baseline") else "HEAD"
+        create_branch(self.project_dir, branch, start_point=start)
         if not wt_path.exists():
             create_worktree(self.project_dir, wt_path, branch)
 

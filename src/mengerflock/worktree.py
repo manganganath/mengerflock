@@ -14,6 +14,12 @@ def _git(repo: Path, *args: str, check: bool = True) -> subprocess.CompletedProc
     )
 
 
+def ref_exists(repo: Path, ref: str) -> bool:
+    """Check if a git ref (branch, tag, or commit) exists."""
+    result = _git(repo, "rev-parse", "--verify", ref, check=False)
+    return result.returncode == 0
+
+
 def create_branch(repo: Path, branch_name: str, start_point: str | None = None) -> None:
     """Create branch_name in repo if it does not already exist."""
     result = _git(repo, "branch", "--list", branch_name)

@@ -131,14 +131,18 @@ def load_config(path: str | Path) -> MengerFlockConfig:
 
     # Modules
     modules_raw = _require(raw, "modules")
-    modules = [
-        ModuleConfig(
+    if not modules_raw:
+        raise ConfigError("modules list must not be empty")
+    modules = []
+    for m in modules_raw:
+        files = _require(m, "files", "modules[]")
+        if not files:
+            raise ConfigError(f"modules[].files must not be empty for module '{m.get('name', '?')}'")
+        modules.append(ModuleConfig(
             name=_require(m, "name", "modules[]"),
-            files=_require(m, "files", "modules[]"),
+            files=files,
             description=_require(m, "description", "modules[]"),
-        )
-        for m in modules_raw
-    ]
+        ))
 
     # Build
     build_raw = _require(raw, "build")
@@ -149,8 +153,11 @@ def load_config(path: str | Path) -> MengerFlockConfig:
 
     # Benchmarks
     bench_raw = _require(raw, "benchmarks")
+    small = _require(bench_raw, "small", "benchmarks")
+    if not small:
+        raise ConfigError("benchmarks.small must not be empty")
     benchmarks = BenchmarkConfig(
-        small=_require(bench_raw, "small", "benchmarks"),
+        small=small,
         medium=bench_raw.get("medium", []),
         large=bench_raw.get("large", []),
         baseline_results=bench_raw.get("baseline_results"),
@@ -158,11 +165,17 @@ def load_config(path: str | Path) -> MengerFlockConfig:
 
     # Evaluation
     eval_raw = _require(raw, "evaluation")
+    runs_per_instance = eval_raw.get("runs_per_instance", 5)
+    if runs_per_instance < 1:
+        raise ConfigError("evaluation.runs_per_instance must be >= 1")
+    random_seeds = eval_raw.get("random_seeds", [42, 123, 456, 789, 1024])
+    if not random_seeds:
+        raise ConfigError("evaluation.random_seeds must not be empty")
     evaluation = EvaluationConfig(
         metric=_require(eval_raw, "metric", "evaluation"),
         progressive=eval_raw.get("progressive", True),
-        runs_per_instance=eval_raw.get("runs_per_instance", 5),
-        random_seeds=eval_raw.get("random_seeds", [42, 123, 456, 789, 1024]),
+        runs_per_instance=runs_per_instance,
+        random_seeds=random_seeds,
     )
 
     # Agents
@@ -199,12 +212,24 @@ def load_config(path: str | Path) -> MengerFlockConfig:
 
     # Stopping conditions
     stop_raw = raw.get("stopping_conditions", {})
+    max_total_iterations = stop_raw.get("max_total_iterations", 500)
+    max_hours = stop_raw.get("max_hours", 24)
+    stagnation_window = stop_raw.get("stagnation_window", 50)
+    max_reentries = stop_raw.get("max_reentries", 2)
+    if max_total_iterations < 1:
+        raise ConfigError("stopping_conditions.max_total_iterations must be >= 1")
+    if max_hours <= 0:
+        raise ConfigError("stopping_conditions.max_hours must be > 0")
+    if stagnation_window < 1:
+        raise ConfigError("stopping_conditions.stagnation_window must be >= 1")
+    if max_reentries < 0:
+        raise ConfigError("stopping_conditions.max_reentries must be >= 0")
     stopping = StoppingConditions(
-        max_total_iterations=stop_raw.get("max_total_iterations", 500),
-        max_hours=stop_raw.get("max_hours", 24),
+        max_total_iterations=max_total_iterations,
+        max_hours=max_hours,
         target_improvement=stop_raw.get("target_improvement", 0.5),
-        stagnation_window=stop_raw.get("stagnation_window", 50),
-        max_reentries=stop_raw.get("max_reentries", 2),
+        stagnation_window=stagnation_window,
+        max_reentries=max_reentries,
     )
 
     return MengerFlockConfig(
