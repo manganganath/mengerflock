@@ -1,12 +1,10 @@
 cff-version: 1.2.0
 message: "If you use MengerFlock in your research, please cite it as below."
 type: software
-title: "MengerFlock"
-abstract: "A hierarchical multi-agent system that evolves algorithms through autonomous experimentation."
+title: "MengerFlock: A hierarchical multi-agent system that evolves algorithms through autonomous experimentation."
 authors:
   - family-names: "Ganganath"
     given-names: "Nuwan"
-    email: "manganganath@gmail.com"
 version: "0.2.0"
 date-released: "2026-04-11"
 license: MIT

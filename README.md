@@ -483,7 +483,7 @@ If you use MengerFlock in your research, please cite it:
 ```bibtex
 @software{ganganath2026mengerflock,
   author = {Ganganath, Nuwan},
-  title = {MengerFlock: A Hierarchical Multi-Agent System for Automated Algorithm Discovery},
+  title = {MengerFlock: A hierarchical multi-agent system that evolves algorithms through autonomous experimentation},
   year = {2026},
   url = {https://github.com/manganganath/mengerflock},
   version = {0.2.0}
