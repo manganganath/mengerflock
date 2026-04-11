@@ -4,6 +4,7 @@ resume.txt
 docs/
 example-projects/*
 !example-projects/binpacking/
+!example-projects/binpacking-experiment/
 tests/
 __pycache__/
 *.pyc
