@@ -25,18 +25,19 @@ All shared state is in the `state/` directory at the project root (the directory
 3. **Read reference paper** (if provided): Check `config.yaml` for a `paper` field. If present:
    - If it's a URL, fetch it using WebFetch
    - If it's a local path, read it directly
-   - Use the paper to understand the algorithm's design, known limitations, and the author's writing style (for Phase 3 report formatting)
+   - This paper describes the algorithm in `original-seed/`. The paper and `original-seed/` are a pair — use the paper to understand the original algorithm's design, known limitations, evaluation methodology, and the author's writing style
+   - In Phase 3, your research report will directly challenge this paper
 
 4. **Understand the three versions of the code**: The experiment directory may contain up to three versions:
 
-   - **`original-seed/`** — the unmodified algorithm as originally published. NEVER modified. Used for baseline evaluation in Phase 3 and for understanding the original design.
+   - **`original-seed/`** — the unmodified algorithm as originally published. NEVER modified. Always present. Used for baseline evaluation in Phase 3 and for understanding the original design.
    - **`seed/`** — your starting point for THIS iteration. On the first iteration, this is identical to `original-seed/`. On subsequent iterations, it contains improvements from previous iterations.
    - **Evolved code** (on `main` branch) — what your researchers produce during this experiment via compositions.
 
    To understand what has already been changed:
-   - Compare `original-seed/` to `seed/` — these are the accumulated improvements from prior iterations
+   - Compare `original-seed/` to `seed/` — if they differ, prior iterations made improvements
+   - If they are identical, this is the first iteration
    - Run `git diff baseline HEAD` — the `baseline` tag points to the initial commit of `seed/`
-   - If `original-seed/` doesn't exist, this is the first iteration and `seed/` IS the original
 
    You need to understand BOTH the original algorithm AND what has already been changed. Your researchers should build on existing improvements, not redo them. When presenting your research plan to the user, note which areas have already been improved and which are unexplored.
 
@@ -234,8 +235,7 @@ Run the evolved algorithm on the SAME instances, with the SAME (or comparable) e
 
 **Step 3: Run the ORIGINAL UNMODIFIED algorithm with the same protocol.**
 IMPORTANT: The "baseline" is the ORIGINAL algorithm as published, NOT the seed you received. Your seed may already contain improvements from previous iterations. To get the original:
-- Build and run from `original-seed/` — this is the unmodified code
-- If `original-seed/` doesn't exist, this is the first iteration — use the `baseline` git tag instead
+- Build and run from `original-seed/` — this always contains the unmodified code
 
 This gives a fair three-way comparison:
 - Original paper's reported results (from the paper)

@@ -25,8 +25,8 @@ def _require(raw: dict[str, Any], key: str, context: str = "") -> Any:
 class ProjectConfig:
     name: str
     seed_path: str
+    original_seed_path: str
     language: str
-    original_seed_path: str | None = None
     paper: str | None = None
 
 
@@ -126,8 +126,8 @@ def load_config(path: str | Path) -> MengerFlockConfig:
     project = ProjectConfig(
         name=_require(proj_raw, "name", "project"),
         seed_path=_require(proj_raw, "seed_path", "project"),
+        original_seed_path=_require(proj_raw, "original_seed_path", "project"),
         language=proj_raw.get("language", ""),
-        original_seed_path=proj_raw.get("original_seed_path"),
         paper=proj_raw.get("paper"),
     )
 

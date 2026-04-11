@@ -46,9 +46,9 @@ The orchestrator is a thin Python layer that launches a tmux session with one wi
 | Input | Required | Description |
 |---|---|---|
 | Seed codebase (`seed/`) | Yes | The starting point for this iteration. On the first run, this is the unmodified algorithm. On subsequent runs, it contains improvements from prior iterations. |
-| Original seed (`original-seed/`) | No (first iteration) / Yes (subsequent) | The unmodified algorithm as published. Never modified. Used for baseline comparison in Phase 3. |
+| Original seed (`original-seed/`) | Yes | The unmodified algorithm as published. Never modified. Used for baseline comparison in Phase 3. On the first iteration, this is a copy of `seed/`. |
 | Benchmarks (`datasets/holdout/`) | Yes | Holdout instances with known optimal values. Only used in Phase 3 evaluation. |
-| Reference paper | No | PDF or URL. If provided, the strategist reads it for domain context and the research report directly challenges it using the same evaluation methodology. |
+| Reference paper | No | PDF or URL describing the `original-seed` algorithm. If provided, the research report directly challenges it using the same evaluation methodology. Must correspond to the code in `original-seed/`. |
 
 **Outputs:**
 | Output | Condition | Path |
@@ -112,12 +112,12 @@ The strategist will generate `datasets/train/` and `datasets/validation/` automa
 ```yaml
 project:
   name: "my-algorithm"
-  seed_path: "./seed/"             # starting point for this iteration (required)
-  original_seed_path: "./original-seed/"  # unmodified algorithm for baseline comparison (optional)
+  seed_path: "./seed/"             # starting point for this iteration
+  original_seed_path: "./original-seed/"  # unmodified algorithm (never modified, for baseline)
   language: "c"
-  # paper: "./paper.pdf"           # optional: reference paper describing the original algorithm
-                                    # if provided, strategist reads it for domain context
-                                    # and the research report challenges it directly
+  # paper: "./paper.pdf"           # optional: paper describing the original-seed algorithm
+                                    # must correspond to the code in original-seed/
+                                    # research report will challenge this paper directly
 
 modules:                    # the strategist can refine these after analyzing the code
   - name: "core_logic"
