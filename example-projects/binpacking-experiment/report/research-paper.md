@@ -14,27 +14,98 @@ We describe a portfolio-based approach that runs multiple heuristic strategies i
 
 ### 2.1 Initial Packing Strategies
 
-**Best Fit Decreasing (BFD):** Sort items descending, place each into the bin with the least remaining capacity that still fits (tightest fit). Same asymptotic bound as FFD.
+Three complementary heuristics produce different bin configurations, giving the local search different landscapes to explore.
 
-**First Fit Decreasing (FFD):** Sort items descending, place each into the first bin that fits.
+**Best Fit Decreasing (BFD):** Sort items by weight descending. For each item, place it into the bin with the least remaining capacity that still fits (tightest fit). If no bin fits, open a new bin. Time complexity: O(n^2).
 
-**MBS-Anchor:** For each new bin, start with the largest unplaced item as an "anchor." Then search for the best subset of remaining items (via combinations up to size 4) that minimizes the bin's residual capacity. With items in [20, 80] and capacity 100, each bin holds at most 5 items, making the subset enumeration tractable.
+**First Fit Decreasing (FFD):** Sort items by weight descending. For each item, place it into the first bin (by index) that fits. If no bin fits, open a new bin. Time complexity: O(n^2).
 
-### 2.2 Local Search Pipeline
+**MBS-Anchor (Minimum Bin Slack with Anchoring):** Process items in decreasing order. For each new bin:
+1. Place the largest remaining item as the "anchor"
+2. Compute remaining space = capacity - anchor
+3. From the remaining items, find up to K=40 candidates that fit in the remaining space
+4. Enumerate all subsets of these candidates up to size 4 (if more than 50 candidates, limit to subsets of size 2)
+5. Select the subset that minimizes residual capacity (i.e., fills the bin most tightly)
+6. If a perfect fill is found (residual = 0), accept immediately
+7. Place the selected items and remove them from the pool
 
-Each initial packing is refined through a sequence of local search operators:
+This is a greedy approximation of the NP-hard subset-sum problem for each bin. The depth limit of 4 keeps it tractable: with K=40 candidates, we evaluate at most C(40,1) + C(40,2) + C(40,3) + C(40,4) = 40 + 780 + 9880 + 91390 ≈ 102K subsets per bin.
 
-1. **Bin Elimination:** Sort bins by load (ascending). For the lightest bin, attempt to redistribute all its items into other bins via best-fit. If successful, the bin is eliminated. Repeat until no bin can be eliminated.
+### 2.2 Local Search Operators
 
-2. **Item Relocation:** For each bin, try moving its smallest item to another bin (best-fit). If the move enables elimination of the source bin (by redistributing remaining items), execute it.
+Each initial packing is refined by applying four operators in sequence. All operators use a common subroutine `try_fit_greedy(items, bins, capacity, skip)` which attempts to place a set of items into existing bins using best-fit, skipping bins in the `skip` set. If any item cannot be placed, all placements are rolled back (atomic operation).
 
-3. **Destroy-and-Repack:** Randomly select 1-6 bins weighted by residual capacity (slacker bins more likely). Remove all items from selected bins and attempt to redistribute them into remaining bins via best-fit. Accept if the total bin count improves. Run for 400-1500 iterations with different random seeds.
+**Operator 1: Bin Elimination.** Sort bins by total load (ascending, lightest first). For each bin starting from the lightest:
+1. Remove all items from the candidate bin
+2. Attempt to redistribute them into the remaining bins via `try_fit_greedy`
+3. If successful: permanently remove the empty bin, restart from the lightest bin
+4. If unsuccessful: restore the bin and try the next one
+5. Repeat until a full pass produces no elimination
 
-4. **Pair Swap and Eliminate:** For each pair of bins, try swapping items to increase the maximum residual capacity. After a swap, attempt bin elimination. This can unlock improvements that single-bin operations miss.
+**Operator 2: Item Relocation.** For each source bin with 2+ items, for each item in that bin (sorted by weight ascending, smallest first):
+1. Find a destination bin with enough remaining capacity for the item
+2. Move the item to the destination
+3. Attempt to eliminate the source bin (redistribute its remaining items via `try_fit_greedy`)
+4. If elimination succeeds: the source bin is removed (net -1 bin), restart the outer loop
+5. If elimination fails: undo the item move, try the next item/destination pair
+
+This operator discovers eliminations that require "unlocking" capacity by moving one item first.
+
+**Operator 3: Destroy-and-Repack.** A stochastic metaheuristic that escapes local optima:
+```
+Parameters: max_iters (400-800), seed, num_destroy ∈ [1, min(6, n-1)]
+
+for iter = 1 to max_iters:
+    1. Compute destruction weights: w[i] = remaining_capacity[i] + 1 (slacker bins more likely)
+    2. Select num_destroy bins via weighted sampling without replacement
+    3. Collect all items from destroyed bins (freed items)
+    4. Attempt to place freed items into surviving bins via try_fit_greedy
+    5. If all items placed and total bins < best_count:
+       Accept: update best solution
+    6. Otherwise: discard (next iteration starts from best known solution)
+```
+
+The weighting biases destruction toward bins with more wasted space, focusing the search on productive moves. The algorithm is deterministic for a given seed.
+
+**Operator 4: Pair Swap and Eliminate.** For each pair of bins (i, j), for each item a in bin i and item b in bin j:
+1. Compute the effect of swapping a and b: new_rem[i] = rem[i] + (a - b), new_rem[j] = rem[j] - (a - b)
+2. Accept the swap only if it strictly increases max(rem[i], rem[j]) (creates more slack for future elimination) and both bins remain feasible
+3. After any accepted swap: run Bin Elimination + Item Relocation
+4. If bins were eliminated: reset the round counter and continue
+5. Maximum 3 rounds without elimination before stopping
 
 ### 2.3 Portfolio Strategy
 
-The solver runs the full pipeline (initial packing + local search) for each of the three initial heuristics, plus additional runs with varied destroy-repack seeds. The minimum bin count across all runs is reported. For instances ≤200 items, a backtracking solver with symmetry breaking attempts to prove tighter bounds.
+The solver runs multiple strategy pipelines and returns the minimum bin count across all runs:
+
+```
+Pipeline 1: BFD → BinElim → ItemReloc → Destroy(800 iters, seed=42)
+            → BinElim → ItemReloc → PairSwap
+Pipeline 2: MBS-Anchor → BinElim → ItemReloc → Destroy(600 iters, seed=42)
+            → BinElim → ItemReloc
+Pipeline 3: MBS-Anchor → BinElim → ItemReloc → Destroy(600 iters, seed=123)
+            → BinElim → ItemReloc
+Pipeline 4: MBS-Anchor → BinElim → ItemReloc → Destroy(600 iters, seed=456)
+            → BinElim → ItemReloc
+Pipeline 5: FFD → BinElim → ItemReloc → Destroy(400 iters, seed=999)
+            → BinElim → ItemReloc
+
+best = min(Pipeline 1, ..., Pipeline 5)
+```
+
+### 2.4 Exact Solver for Small Instances
+
+For instances with n ≤ 200 items, after the heuristic portfolio, a backtracking exact solver attempts to prove a tighter bound:
+
+1. Compute lower bound: LB = max(ceil(sum(items) / capacity), count of items > capacity/2)
+2. For target = LB to best - 1:
+   - Attempt to pack all items into exactly `target` bins using depth-first backtracking
+   - Items sorted descending. At each node, try placing the current item into each bin (sorted by current load descending for better pruning)
+   - Symmetry breaking: bins with identical loads are interchangeable; only try one
+   - Pruning: if remaining items' total weight exceeds remaining capacity across all bins, prune
+   - Node limit: 10M nodes for n ≤ 100, 3M nodes for 100 < n ≤ 200
+   - If a feasible packing is found at `target` bins, return `target`
+3. If no improvement found within node limits, return the heuristic result
 
 ## 3. Experimental Results
 
