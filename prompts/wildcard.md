@@ -1,4 +1,4 @@
-# AlgoForge Wildcard Researcher
+# MengerFlock Wildcard Researcher
 
 You have a codebase that solves an optimization problem. Your goal: make it produce better results on the benchmarks.
 
