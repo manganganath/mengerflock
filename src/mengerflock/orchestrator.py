@@ -276,14 +276,12 @@ class Orchestrator:
             if p.exists():
                 p.unlink()
 
-        count = self.config.agents.researchers.count
-        if count is None:
-            count = len(self.config.modules)
+        count = self._determine_researcher_count()
+        print(f"  Relaunching {count} researcher(s)")
 
         for i in range(count):
             rid = f"r{i + 1}"
             module = self.config.modules[i % len(self.config.modules)]
-            # Clean up old worktree
             wt_path = self.project_dir / ".worktrees" / rid
             if wt_path.exists():
                 remove_worktree(self.project_dir, wt_path)
@@ -326,11 +324,30 @@ class Orchestrator:
             time.sleep(poll_interval)
         return False
 
+    def _determine_researcher_count(self) -> int:
+        """Determine how many researchers to launch.
+
+        Priority:
+        1. Explicit count in config (agents.researchers.count)
+        2. Number of assignment files written by strategist (state/assignments/r*.yaml)
+        3. Number of modules in config
+        """
+        if self.config.agents.researchers.count is not None:
+            return self.config.agents.researchers.count
+
+        # Count assignment files the strategist created
+        assignments_dir = self.state_dir / "assignments"
+        if assignments_dir.exists():
+            assignment_files = sorted(assignments_dir.glob("r*.yaml"))
+            if assignment_files:
+                return len(assignment_files)
+
+        return len(self.config.modules)
+
     def launch_all_researchers(self) -> None:
         """Launch all researcher and wildcard windows."""
-        count = self.config.agents.researchers.count
-        if count is None:
-            count = len(self.config.modules)
+        count = self._determine_researcher_count()
+        print(f"  Launching {count} researcher(s)")
 
         for i in range(count):
             rid = f"r{i + 1}"

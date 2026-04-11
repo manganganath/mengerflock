@@ -140,7 +140,9 @@ agents:
   strategist:
     model_flags: "--model opus"
   researchers:
-    # count is optional — defaults to one per module
+    # count is optional — if omitted, the orchestrator counts the assignment files
+    # the strategist creates in Phase 1 (one per researcher it plans to use).
+    # If no assignments exist yet, defaults to one researcher per module.
     # count: 3
     model_flags: "--model sonnet"
     max_iterations_per_assignment: 20
