@@ -14,10 +14,13 @@ def _git(repo: Path, *args: str, check: bool = True) -> subprocess.CompletedProc
     )
 
 
-def create_branch(repo: Path, branch_name: str) -> None:
+def create_branch(repo: Path, branch_name: str, start_point: str | None = None) -> None:
     result = _git(repo, "branch", "--list", branch_name)
     if branch_name not in result.stdout:
-        _git(repo, "branch", branch_name)
+        args = ["branch", branch_name]
+        if start_point:
+            args.append(start_point)
+        _git(repo, *args)
 
 
 def create_worktree(repo: Path, worktree_path: Path, branch: str) -> None:

@@ -16,7 +16,21 @@ from mengerflock.state import (
 from mengerflock.worktree import create_branch, create_worktree
 
 
+def is_seed_url(seed_path: str) -> bool:
+    return seed_path.startswith(("http://", "https://", "git@"))
+
+
 def init_project(project_dir: Path, config: MengerFlockConfig) -> None:
+    # Clone seed if URL
+    if is_seed_url(config.project.seed_path):
+        seed_dir = project_dir / "seed"
+        if not seed_dir.exists():
+            subprocess.run(
+                ["git", "clone", config.project.seed_path, str(seed_dir)],
+                check=True,
+            )
+            config.project.seed_path = str(seed_dir)
+
     state_dir = project_dir / "state"
     init_state_dir(state_dir)
 
@@ -166,18 +180,17 @@ class Orchestrator:
 
             time.sleep(poll_interval)
 
-    def shutdown(self) -> None:
+    def shutdown(self, keep_strategist: bool = False) -> None:
         self._shutdown = True
         write_shutdown_flag(self.state_dir)
 
-        # Send /exit to all windows
         result = subprocess.run(
             ["tmux", "list-windows", "-t", "mengerflock", "-F", "#{window_name}"],
             capture_output=True, text=True, check=False
         )
         if result.returncode == 0:
             for window in result.stdout.strip().split('\n'):
-                if window:
+                if window and (not keep_strategist or window != "strategist"):
                     subprocess.run([
                         "tmux", "send-keys", "-t", f"mengerflock:{window}",
                         "/exit", "Enter"
@@ -212,14 +225,25 @@ class Orchestrator:
         wt_path = self.project_dir / ".worktrees" / "w1"
         branch = "wildcard/w1"
 
-        create_branch(self.project_dir, branch)
+        create_branch(self.project_dir, branch, start_point="baseline")
         if not wt_path.exists():
             create_worktree(self.project_dir, wt_path, branch)
 
-        # Create symlinks (use absolute paths)
-        state_link = wt_path / "state"
-        if not state_link.exists():
-            state_link.symlink_to(self.state_dir.resolve())
+        # Restricted state: only results.tsv for writing, no full state/ access
+        wt_state = wt_path / "state"
+        wt_state.mkdir(exist_ok=True)
+
+        results_link = wt_state / "results.tsv"
+        if not results_link.exists():
+            results_link.symlink_to((self.state_dir / "results.tsv").resolve())
+
+        # Shutdown detection — symlink the shutdown flag location
+        # (wildcard checks if state/shutdown exists)
+
+        objectives_link = wt_path / "objectives.md"
+        objectives_src = self.state_dir / "objectives.md"
+        if objectives_src.exists() and not objectives_link.exists():
+            objectives_link.symlink_to(objectives_src.resolve())
 
         for name in ["eval.sh", "datasets", "wildcard.md"]:
             link = wt_path / name
@@ -241,8 +265,9 @@ class Orchestrator:
         time.sleep(3)
         prompt = (
             "Read wildcard.md and follow its instructions. "
+            "Read objectives.md for the experiment's high-level goals. "
             "Your ID is w1. "
-            "State, datasets, and eval.sh are in your working directory."
+            "Datasets and eval.sh are in your working directory."
         )
         subprocess.run([
             "tmux", "send-keys", "-t", "mengerflock:w1",
