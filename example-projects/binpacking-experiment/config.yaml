@@ -1,6 +1,7 @@
 project:
   name: "binpacking-ffd"
   seed_path: "./seed/"
+  original_seed_path: "../binpacking/original-seed/"
   language: "python"
 
 modules:
@@ -13,9 +14,9 @@ build:
   binary: "python seed/solver.py"
 
 benchmarks:
-  small: ["datasets/holdout/small_*.txt"]
-  medium: ["datasets/holdout/medium_*.txt"]
-  large: ["datasets/holdout/large_*.txt"]
+  small: ["../binpacking/datasets/holdout/small_*.txt"]
+  medium: ["../binpacking/datasets/holdout/medium_*.txt"]
+  large: ["../binpacking/datasets/holdout/large_*.txt"]
 
 evaluation:
   metric: "bins_used"

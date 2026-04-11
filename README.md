@@ -90,34 +90,47 @@ pip install -e .
 
 ### Step 2: Prepare Your Project
 
-Create a project directory with your seed codebase and holdout benchmarks:
+MengerFlock uses two folder types:
 
+**Template folder** (e.g., `tsp/`, `binpacking/`) — contains heavy, read-only data. Not tracked in git.
 ```
-my-project/
-├── config.yaml
-├── original-seed/      # unmodified algorithm as published (never touched, for baseline comparison)
-├── seed/               # starting point for this iteration (copy of original-seed on first run)
+tsp/
+├── original-seed/      # unmodified algorithm as published (never touched)
 ├── datasets/
-│   └── holdout/        # established benchmark instances (final eval only)
-├── eval.sh             # script that runs binary on one instance, outputs a number
+│   ├── holdout/        # established benchmark instances
+│   └── paper/          # additional instances from the reference paper (downloaded by strategist)
+├── eval.sh             # evaluation script
 └── paper.pdf           # optional: reference paper describing the original algorithm
 ```
 
-On the **first iteration**, `seed/` is identical to `original-seed/`. On **subsequent iterations**, `seed/` contains the evolved code from the previous iteration while `original-seed/` stays untouched. The strategist uses `original-seed/` for baseline evaluation in Phase 3.
+All benchmark data lives in the template — holdout instances provided by the user, plus any additional instances the strategist downloads from the reference paper during Phase 3 evaluation.
 
-The strategist will generate `datasets/train/` and `datasets/validation/` automatically during initialization, in the same format as the holdout files.
+**Experiment folder** (e.g., `tsp-experiment-1/`) — contains only what the experiment produces. Tracked in git.
+```
+tsp-experiment-1/
+├── config.yaml         # references template paths (../tsp/original-seed/, ../tsp/datasets/holdout/)
+├── seed/               # starting point → becomes the evolved code via compositions
+├── eval.sh             # evaluation script
+├── prompts/            # agent instructions
+├── state/              # experiment logs, assignments, baselines (created at runtime)
+└── report/             # experimentation report + research report (created in Phase 3)
+```
+
+On the **first iteration**, `seed/` is a copy of `original-seed/`. On **subsequent iterations**, `seed/` contains the evolved code from the previous iteration. The config always points to the template's `original-seed/` and `datasets/holdout/` via relative paths — no data is duplicated into the experiment folder.
+
+The strategist will generate `datasets/train/` and `datasets/validation/` at runtime during Phase 1, in the same format as the holdout files.
 
 ### Step 3: Write config.yaml
 
 ```yaml
 project:
   name: "my-algorithm"
-  seed_path: "./seed/"             # starting point for this iteration
-  original_seed_path: "./original-seed/"  # unmodified algorithm (never modified, for baseline)
+  seed_path: "./seed/"                    # starting point for this iteration (in experiment folder)
+  original_seed_path: "../tsp/original-seed/"  # unmodified algorithm in template folder
   language: "c"
-  # paper: "./paper.pdf"           # optional: paper describing the original-seed algorithm
-                                    # must correspond to the code in original-seed/
-                                    # research report will challenge this paper directly
+  # paper: "../tsp/paper.pdf"              # optional: paper describing the original-seed algorithm
+                                            # must correspond to the code in original_seed_path
+                                            # research report will challenge this paper directly
 
 modules:                    # the strategist can refine these after analyzing the code
   - name: "core_logic"
@@ -132,9 +145,9 @@ build:
   binary: "./solver"         # use "python solver.py" for Python
 
 benchmarks:
-  small: ["datasets/holdout/small_*.txt"]
-  medium: ["datasets/holdout/med_*.txt"]
-  large: ["datasets/holdout/large_*.txt"]
+  small: ["../tsp/datasets/holdout/small_*.txt"]
+  medium: ["../tsp/datasets/holdout/med_*.txt"]
+  large: ["../tsp/datasets/holdout/large_*.txt"]
 
 evaluation:
   metric: "gap_to_optimal"
