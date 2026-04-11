@@ -4,14 +4,14 @@ from pathlib import Path
 
 import click
 
-from algoforge.config import load_config
-from algoforge.orchestrator import Orchestrator, init_project
-from algoforge.state import read_results, read_strategist_log, is_shutdown_requested
+from mengerflock.config import load_config
+from mengerflock.orchestrator import Orchestrator, init_project
+from mengerflock.state import read_results, read_strategist_log, is_shutdown_requested
 
 
 @click.group()
 def main():
-    """AlgoForge — automated algorithm discovery through multi-agent evolution."""
+    """MengerFlock — automated algorithm discovery through multi-agent evolution."""
     pass
 
 
@@ -19,7 +19,7 @@ def main():
 @click.option("--seed", type=click.Path(exists=True), help="Path to seed codebase")
 @click.option("--config", "config_path", required=True, type=click.Path(exists=True))
 def init(seed: str | None, config_path: str):
-    """Initialize a new AlgoForge project."""
+    """Initialize a new MengerFlock project."""
     config = load_config(config_path)
     project_dir = Path.cwd()
 
@@ -34,7 +34,7 @@ def init(seed: str | None, config_path: str):
 @main.command()
 @click.argument("config_path", type=click.Path(exists=True))
 def run(config_path: str):
-    """Run the AlgoForge experiment."""
+    """Run the MengerFlock experiment."""
     config = load_config(config_path)
     project_dir = Path.cwd()
 
@@ -42,7 +42,7 @@ def run(config_path: str):
         init_project(project_dir, config)
 
     orchestrator = Orchestrator(project_dir, config)
-    click.echo(f"Starting AlgoForge: {config.agents.researchers.count} researchers")
+    click.echo(f"Starting MengerFlock: {config.agents.researchers.count} researchers")
     orchestrator.run()
 
 
@@ -51,7 +51,7 @@ def status():
     """Show current experiment progress."""
     state_dir = Path.cwd() / "state"
     if not state_dir.exists():
-        click.echo("No active project. Run 'algoforge init' first.")
+        click.echo("No active project. Run 'mengerflock init' first.")
         return
 
     results = read_results(state_dir)
@@ -82,7 +82,7 @@ def stop():
         click.echo("No active project.")
         return
 
-    from algoforge.state import write_shutdown_flag
+    from mengerflock.state import write_shutdown_flag
     write_shutdown_flag(state_dir)
     click.echo("Shutdown signal sent. Sessions will finish current iteration and stop.")
 
@@ -99,7 +99,7 @@ def report():
     log = read_strategist_log(state_dir)
 
     click.echo("=" * 60)
-    click.echo("AlgoForge Experiment Report")
+    click.echo("MengerFlock Experiment Report")
     click.echo("=" * 60)
     click.echo(f"\nTotal experiments: {len(results)}")
     click.echo(f"Strategist actions: {len(log)}")

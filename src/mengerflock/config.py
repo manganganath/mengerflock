@@ -1,4 +1,4 @@
-"""Configuration loading and validation for AlgoForge."""
+"""Configuration loading and validation for MengerFlock."""
 
 from __future__ import annotations
 
@@ -100,7 +100,7 @@ class StoppingConditions:
 
 
 @dataclasses.dataclass
-class AlgoForgeConfig:
+class MengerFlockConfig:
     project: ProjectConfig
     modules: list[ModuleConfig]
     build: BuildConfig
@@ -111,7 +111,7 @@ class AlgoForgeConfig:
     stopping_conditions: StoppingConditions
 
 
-def load_config(path: str | Path) -> AlgoForgeConfig:
+def load_config(path: str | Path) -> MengerFlockConfig:
     path = Path(path)
     if not path.exists():
         raise FileNotFoundError(f"Config file not found: {path}")
@@ -215,7 +215,7 @@ def load_config(path: str | Path) -> AlgoForgeConfig:
         stagnation_window=stop_raw.get("stagnation_window", 50),
     )
 
-    return AlgoForgeConfig(
+    return MengerFlockConfig(
         project=project,
         modules=modules,
         build=build,

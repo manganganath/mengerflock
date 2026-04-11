@@ -6,17 +6,17 @@ import subprocess
 import time
 from pathlib import Path
 
-from algoforge.config import AlgoForgeConfig
-from algoforge.state import (
+from mengerflock.config import MengerFlockConfig
+from mengerflock.state import (
     init_state_dir,
     read_results,
     write_shutdown_flag,
     is_shutdown_requested,
 )
-from algoforge.worktree import create_branch, create_worktree
+from mengerflock.worktree import create_branch, create_worktree
 
 
-def init_project(project_dir: Path, config: AlgoForgeConfig) -> None:
+def init_project(project_dir: Path, config: MengerFlockConfig) -> None:
     state_dir = project_dir / "state"
     init_state_dir(state_dir)
 
@@ -27,7 +27,7 @@ def init_project(project_dir: Path, config: AlgoForgeConfig) -> None:
 
 def check_stopping_conditions(
     state_dir: Path,
-    config: AlgoForgeConfig,
+    config: MengerFlockConfig,
     start_time: float,
 ) -> tuple[bool, str]:
     sc = config.stopping_conditions
@@ -63,7 +63,7 @@ def check_stopping_conditions(
 
 
 class Orchestrator:
-    def __init__(self, project_dir: Path, config: AlgoForgeConfig):
+    def __init__(self, project_dir: Path, config: MengerFlockConfig):
         self.project_dir = project_dir.resolve()
         self.config = config
         self.state_dir = project_dir / "state"
@@ -84,7 +84,7 @@ class Orchestrator:
 
         # Create tmux window with interactive claude
         subprocess.run([
-            "tmux", "new-window", "-t", "algoforge",
+            "tmux", "new-window", "-t", "mengerflock",
             "-n", "strategist",
             "-c", str(self.project_dir),
             f"{tool} {model_flags} --allowedTools 'Edit,Write,Bash,Read,Glob,Grep,WebSearch,WebFetch'"
@@ -100,7 +100,7 @@ class Orchestrator:
             "After initialization, enter Phase 2 and monitor continuously."
         )
         subprocess.run([
-            "tmux", "send-keys", "-t", "algoforge:strategist",
+            "tmux", "send-keys", "-t", "mengerflock:strategist",
             prompt, "Enter"
         ], check=True)
 
@@ -127,7 +127,7 @@ class Orchestrator:
 
         # Create tmux window
         subprocess.run([
-            "tmux", "new-window", "-t", "algoforge",
+            "tmux", "new-window", "-t", "mengerflock",
             "-n", researcher_id,
             "-c", str(wt_path),
             f"{tool} {model_flags} --allowedTools 'Edit,Write,Bash,Read,Glob,Grep,WebSearch,WebFetch'"
@@ -141,7 +141,7 @@ class Orchestrator:
             f"State, datasets, and eval.sh are symlinked in your working directory."
         )
         subprocess.run([
-            "tmux", "send-keys", "-t", f"algoforge:{researcher_id}",
+            "tmux", "send-keys", "-t", f"mengerflock:{researcher_id}",
             prompt, "Enter"
         ], check=True)
 
@@ -157,7 +157,7 @@ class Orchestrator:
 
             # Check if tmux session still has windows
             result = subprocess.run(
-                ["tmux", "list-windows", "-t", "algoforge"],
+                ["tmux", "list-windows", "-t", "mengerflock"],
                 capture_output=True, check=False
             )
             if result.returncode != 0:
@@ -172,14 +172,14 @@ class Orchestrator:
 
         # Send /exit to all windows
         result = subprocess.run(
-            ["tmux", "list-windows", "-t", "algoforge", "-F", "#{window_name}"],
+            ["tmux", "list-windows", "-t", "mengerflock", "-F", "#{window_name}"],
             capture_output=True, text=True, check=False
         )
         if result.returncode == 0:
             for window in result.stdout.strip().split('\n'):
                 if window:
                     subprocess.run([
-                        "tmux", "send-keys", "-t", f"algoforge:{window}",
+                        "tmux", "send-keys", "-t", f"mengerflock:{window}",
                         "/exit", "Enter"
                     ], check=False)
 
@@ -187,7 +187,7 @@ class Orchestrator:
         self.setup_signal_handlers()
 
         # Create tmux session
-        subprocess.run(["tmux", "new-session", "-d", "-s", "algoforge"], check=False)
+        subprocess.run(["tmux", "new-session", "-d", "-s", "mengerflock"], check=False)
 
         self.launch_strategist()
 
@@ -232,7 +232,7 @@ class Orchestrator:
         model_flags = wildcard_cfg.model_flags
 
         subprocess.run([
-            "tmux", "new-window", "-t", "algoforge",
+            "tmux", "new-window", "-t", "mengerflock",
             "-n", "w1",
             "-c", str(wt_path),
             f"{tool} {model_flags} --allowedTools 'Edit,Write,Bash,Read,Glob,Grep'"
@@ -245,6 +245,6 @@ class Orchestrator:
             "State, datasets, and eval.sh are in your working directory."
         )
         subprocess.run([
-            "tmux", "send-keys", "-t", "algoforge:w1",
+            "tmux", "send-keys", "-t", "mengerflock:w1",
             prompt, "Enter"
         ], check=True)
