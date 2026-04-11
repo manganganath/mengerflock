@@ -116,7 +116,7 @@ def clean(force: bool) -> None:
     if result.returncode == 0:
         for line in result.stdout.splitlines():
             branch = line.strip().lstrip("* ")
-            if branch.startswith(("module/", "wildcard/", "researcher/", "crosspollin/")):
+            if branch.startswith(("wildcard/", "researcher/", "crosspollin/")):
                 _git(project_dir, "branch", "-D", branch, check=False)
                 click.echo(f"Deleted branch {branch}")
 

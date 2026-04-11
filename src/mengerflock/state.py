@@ -194,3 +194,26 @@ def append_baseline_holdout(state_dir: str | Path, result: dict) -> None:
 def read_baseline_holdout(state_dir: str | Path) -> list[dict[str, str]]:
     """Return all rows from baseline_holdout.tsv as a list of dicts."""
     return _read_tsv(Path(state_dir) / BASELINE_HOLDOUT_FILE)
+
+
+INITIAL_SEED_HOLDOUT_FILE = "initial_seed_holdout.tsv"
+
+
+def append_initial_seed_holdout(state_dir: str | Path, result: dict) -> None:
+    """Append a row to the initial seed holdout TSV."""
+    state_dir = Path(state_dir)
+    path = state_dir / INITIAL_SEED_HOLDOUT_FILE
+    if not path.exists():
+        path.write_text("\t".join(RESULTS_HEADER) + "\n")
+    ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
+    row = [
+        ts, result["researcher"], result["module"], result["commit"],
+        result["metric_avg"], result["metric_best"], result["status"],
+        result["hypothesis"], result["description"],
+    ]
+    _append_tsv(path, row)
+
+
+def read_initial_seed_holdout(state_dir: str | Path) -> list[dict[str, str]]:
+    """Read the initial seed holdout TSV."""
+    return _read_tsv(Path(state_dir) / INITIAL_SEED_HOLDOUT_FILE)

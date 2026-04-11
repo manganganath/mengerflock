@@ -110,7 +110,7 @@ All benchmark data lives in the template — holdout instances provided by the u
 tsp-experiment-1/
 ├── config.yaml         # references template paths (../tsp/original-seed/, ../tsp/datasets/holdout/)
 ├── seed/               # starting point → becomes the evolved code via compositions
-├── eval.sh             # evaluation script
+├── eval.sh             # evaluation script (copied from template)
 ├── prompts/            # agent instructions
 ├── state/              # experiment logs, assignments, baselines (created at runtime)
 └── report/             # experimentation report + research report (created in Phase 3)
@@ -472,7 +472,7 @@ mengerflock/
 │   ├── strategist.md           # strategist agent instructions
 │   ├── researcher.md           # researcher agent instructions
 │   └── wildcard.md             # wildcard agent instructions
-├── projects/            # example project configs
+├── projects/                    # experiment templates and results
 └── tests/
 ```
 
