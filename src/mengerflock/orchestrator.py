@@ -15,14 +15,16 @@ from mengerflock.state import (
     is_phase2_complete,
     is_phase3_complete,
 )
-from mengerflock.worktree import create_branch, create_worktree
+from mengerflock.worktree import create_branch, create_worktree, remove_worktree
 
 
 def is_seed_url(seed_path: str) -> bool:
+    """Return True if seed_path looks like a remote git URL."""
     return seed_path.startswith(("http://", "https://", "git@"))
 
 
 def init_project(project_dir: Path, config: MengerFlockConfig) -> None:
+    """Initialize project directory: clone seed if needed and set up state."""
     # Clone seed if URL
     if is_seed_url(config.project.seed_path):
         seed_dir = project_dir / "seed"
@@ -46,6 +48,7 @@ def check_stopping_conditions(
     config: MengerFlockConfig,
     start_time: float,
 ) -> tuple[bool, str]:
+    """Return (triggered, reason) based on current results and config limits."""
     sc = config.stopping_conditions
     results = read_results(state_dir)
 
@@ -111,31 +114,47 @@ class Orchestrator:
         if result.returncode != 0:
             raise RuntimeError(f"Failed to create tmux session: {result.stderr}")
 
-    def _handle_signal(self, signum, frame):
+    def _handle_signal(self, signum, frame) -> None:
         self._shutdown = True
         write_shutdown_flag(self.state_dir)
 
-    def setup_signal_handlers(self):
+    def setup_signal_handlers(self) -> None:
+        """Register SIGINT and SIGTERM handlers for graceful shutdown."""
         signal.signal(signal.SIGINT, self._handle_signal)
         signal.signal(signal.SIGTERM, self._handle_signal)
 
-    def launch_strategist(self) -> None:
-        tool = self.config.agents.tool
-        model_flags = self.config.agents.strategist.model_flags
+    def _setup_worktree_symlinks(self, wt_path: Path, names: list[str]) -> None:
+        """Create symlinks from worktree to project root for the given file/dir names."""
+        for name in names:
+            src = self.project_dir / name
+            if src.exists():
+                _safe_symlink(wt_path / name, src.resolve())
 
-        # Create tmux window with interactive claude
+    def _launch_tmux_window(self, name: str, cwd: Path, tool_cmd: str, prompt: str) -> None:
+        """Create a tmux window and send the initial prompt."""
         try:
             subprocess.run([
                 "tmux", "new-window", "-t", "mengerflock",
-                "-n", "strategist",
-                "-c", str(self.project_dir),
-                f"{tool} {model_flags} --allowedTools 'Edit,Write,Bash,Read,Glob,Grep,WebSearch,WebFetch'"
+                "-n", name, "-c", str(cwd), tool_cmd,
             ], check=True, capture_output=True, text=True)
         except subprocess.CalledProcessError as e:
-            raise RuntimeError(f"Failed to launch strategist: {e.stderr}") from e
+            raise RuntimeError(f"Failed to launch {name}: {e.stderr}") from e
 
-        # Wait for claude to start, then send the prompt
         time.sleep(3)
+
+        try:
+            subprocess.run([
+                "tmux", "send-keys", "-t", f"mengerflock:{name}",
+                prompt, "Enter",
+            ], check=True, capture_output=True, text=True)
+        except subprocess.CalledProcessError as e:
+            raise RuntimeError(f"Failed to send prompt to {name}: {e.stderr}") from e
+
+    def launch_strategist(self) -> None:
+        """Launch the strategist agent in a new tmux window."""
+        tool = self.config.agents.tool
+        model_flags = self.config.agents.strategist.model_flags
+        tool_cmd = f"{tool} {model_flags} --allowedTools 'Edit,Write,Bash,Read,Glob,Grep,WebSearch,WebFetch'"
         prompt = (
             "Read strategist.md and follow its instructions. "
             "This is the project root directory. "
@@ -143,58 +162,31 @@ class Orchestrator:
             "Eval script is eval.sh. "
             "After initialization, enter Phase 2 and monitor continuously."
         )
-        try:
-            subprocess.run([
-                "tmux", "send-keys", "-t", "mengerflock:strategist",
-                prompt, "Enter"
-            ], check=True, capture_output=True, text=True)
-        except subprocess.CalledProcessError as e:
-            raise RuntimeError(f"Failed to send keys to strategist: {e.stderr}") from e
+        self._launch_tmux_window("strategist", self.project_dir, tool_cmd, prompt)
 
     def launch_researcher(self, researcher_id: str, module_name: str) -> None:
+        """Launch a researcher agent in its own git worktree and tmux window."""
         wt_path = self.project_dir / ".worktrees" / researcher_id
         branch = f"module/{module_name}"
 
         if not wt_path.exists():
             create_worktree(self.project_dir, wt_path, branch)
 
-        # Create symlinks (use absolute paths)
+        # State dir symlink (always present)
         _safe_symlink(wt_path / "state", self.state_dir.resolve())
 
-        for name in ["eval.sh", "datasets", "researcher.md"]:
-            link = wt_path / name
-            src = self.project_dir / name
-            if src.exists():
-                _safe_symlink(link, src.resolve())
+        # Shared resources from project root
+        self._setup_worktree_symlinks(wt_path, ["eval.sh", "datasets", "researcher.md"])
 
         tool = self.config.agents.tool
         model_flags = self.config.agents.researchers.model_flags
-
-        # Create tmux window
-        try:
-            subprocess.run([
-                "tmux", "new-window", "-t", "mengerflock",
-                "-n", researcher_id,
-                "-c", str(wt_path),
-                f"{tool} {model_flags} --allowedTools 'Edit,Write,Bash,Read,Glob,Grep,WebSearch,WebFetch'"
-            ], check=True, capture_output=True, text=True)
-        except subprocess.CalledProcessError as e:
-            raise RuntimeError(f"Failed to launch {researcher_id}: {e.stderr}") from e
-
-        # Wait then send prompt
-        time.sleep(3)
+        tool_cmd = f"{tool} {model_flags} --allowedTools 'Edit,Write,Bash,Read,Glob,Grep,WebSearch,WebFetch'"
         prompt = (
             f"Read researcher.md and follow its instructions. "
             f"Your researcher ID is {researcher_id}. "
             f"State, datasets, and eval.sh are symlinked in your working directory."
         )
-        try:
-            subprocess.run([
-                "tmux", "send-keys", "-t", f"mengerflock:{researcher_id}",
-                prompt, "Enter"
-            ], check=True, capture_output=True, text=True)
-        except subprocess.CalledProcessError as e:
-            raise RuntimeError(f"Failed to send keys to {researcher_id}: {e.stderr}") from e
+        self._launch_tmux_window(researcher_id, wt_path, tool_cmd, prompt)
 
     def monitor_phase2(self, poll_interval: float = 30.0) -> str:
         """Monitor Phase 2. Returns reason for exit: 'stopping', 'phase2_complete', 'shutdown', 'exited'."""
@@ -294,18 +286,17 @@ class Orchestrator:
             # Clean up old worktree
             wt_path = self.project_dir / ".worktrees" / rid
             if wt_path.exists():
-                from mengerflock.worktree import remove_worktree
                 remove_worktree(self.project_dir, wt_path)
             self.launch_researcher(rid, module.name)
 
         if self.config.agents.wildcard:
             wt_path = self.project_dir / ".worktrees" / "w1"
             if wt_path.exists():
-                from mengerflock.worktree import remove_worktree
                 remove_worktree(self.project_dir, wt_path)
             self.launch_wildcard()
 
     def shutdown(self, keep_strategist: bool = False) -> None:
+        """Send /exit to all (or non-strategist) tmux windows and set shutdown flag."""
         self._shutdown = True
         write_shutdown_flag(self.state_dir)
 
@@ -350,6 +341,7 @@ class Orchestrator:
             self.launch_wildcard()
 
     def run(self) -> None:
+        """Run the full MengerFlock experiment loop (Phases 1, 2, 3)."""
         self.setup_signal_handlers()
         max_reentries = self.config.stopping_conditions.max_reentries
         reentry_count = 0
@@ -402,6 +394,7 @@ class Orchestrator:
             return
 
     def launch_wildcard(self) -> None:
+        """Launch the wildcard agent in its own git worktree and tmux window."""
         wt_path = self.project_dir / ".worktrees" / "w1"
         branch = "wildcard/w1"
 
@@ -422,37 +415,16 @@ class Orchestrator:
         if objectives_src.exists():
             _safe_symlink(wt_path / "objectives.md", objectives_src.resolve())
 
-        for name in ["eval.sh", "datasets", "wildcard.md"]:
-            link = wt_path / name
-            src = self.project_dir / name
-            if src.exists():
-                _safe_symlink(link, src.resolve())
+        self._setup_worktree_symlinks(wt_path, ["eval.sh", "datasets", "wildcard.md"])
 
         tool = self.config.agents.tool
         wildcard_cfg = self.config.agents.wildcard
         model_flags = wildcard_cfg.model_flags
-
-        try:
-            subprocess.run([
-                "tmux", "new-window", "-t", "mengerflock",
-                "-n", "w1",
-                "-c", str(wt_path),
-                f"{tool} {model_flags} --allowedTools 'Edit,Write,Bash,Read,Glob,Grep'"
-            ], check=True, capture_output=True, text=True)
-        except subprocess.CalledProcessError as e:
-            raise RuntimeError(f"Failed to launch w1: {e.stderr}") from e
-
-        time.sleep(3)
+        tool_cmd = f"{tool} {model_flags} --allowedTools 'Edit,Write,Bash,Read,Glob,Grep'"
         prompt = (
             "Read wildcard.md and follow its instructions. "
             "Read objectives.md for the experiment's high-level goals. "
             "Your ID is w1. "
             "Datasets and eval.sh are in your working directory."
         )
-        try:
-            subprocess.run([
-                "tmux", "send-keys", "-t", "mengerflock:w1",
-                prompt, "Enter"
-            ], check=True, capture_output=True, text=True)
-        except subprocess.CalledProcessError as e:
-            raise RuntimeError(f"Failed to send keys to w1: {e.stderr}") from e
+        self._launch_tmux_window("w1", wt_path, tool_cmd, prompt)

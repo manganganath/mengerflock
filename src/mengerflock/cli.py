@@ -7,11 +7,17 @@ import click
 
 from mengerflock.config import load_config
 from mengerflock.orchestrator import Orchestrator, init_project
-from mengerflock.state import read_results, read_strategist_log, is_shutdown_requested, read_baseline_holdout
+from mengerflock.state import (
+    is_shutdown_requested,
+    read_baseline_holdout,
+    read_results,
+    read_strategist_log,
+    write_shutdown_flag,
+)
 
 
 @click.group()
-def main():
+def main() -> None:
     """MengerFlock — automated algorithm discovery through multi-agent evolution."""
     pass
 
@@ -19,7 +25,7 @@ def main():
 @main.command()
 @click.option("--seed", type=click.Path(exists=True), help="Path to seed codebase")
 @click.option("--config", "config_path", required=True, type=click.Path(exists=True))
-def init(seed: str | None, config_path: str):
+def init(seed: str | None, config_path: str) -> None:
     """Initialize a new MengerFlock project."""
     config = load_config(config_path)
     project_dir = Path.cwd()
@@ -34,7 +40,7 @@ def init(seed: str | None, config_path: str):
 
 @main.command()
 @click.argument("config_path", type=click.Path(exists=True))
-def run(config_path: str):
+def run(config_path: str) -> None:
     """Run the MengerFlock experiment."""
     config = load_config(config_path)
     project_dir = Path.cwd()
@@ -48,7 +54,7 @@ def run(config_path: str):
 
 
 @main.command()
-def status():
+def status() -> None:
     """Show current experiment progress."""
     state_dir = Path.cwd() / "state"
     if not state_dir.exists():
@@ -76,28 +82,28 @@ def status():
 
 
 @main.command()
-def stop():
+def stop() -> None:
     """Gracefully stop the experiment."""
     state_dir = Path.cwd() / "state"
     if not state_dir.exists():
         click.echo("No active project.")
         return
 
-    from mengerflock.state import write_shutdown_flag
     write_shutdown_flag(state_dir)
     click.echo("Shutdown signal sent. Sessions will finish current iteration and stop.")
 
 
 @main.command()
 @click.option("--force", is_flag=True, help="Skip confirmation")
-def clean(force: bool):
+def clean(force: bool) -> None:
     """Remove all experiment state (state/, .worktrees/, report/, experiment branches)."""
+    import shutil
+
     project_dir = Path.cwd()
 
     if not force:
         click.confirm("This will delete state/, .worktrees/, report/, and experiment branches. Continue?", abort=True)
 
-    import shutil
     for d in ["state", ".worktrees", "report"]:
         p = project_dir / d
         if p.exists():
@@ -118,7 +124,7 @@ def clean(force: bool):
 
 
 @main.command()
-def report():
+def report() -> None:
     """Generate report from experiment results."""
     state_dir = Path.cwd() / "state"
     if not state_dir.exists():

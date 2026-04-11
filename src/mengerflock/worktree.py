@@ -15,6 +15,7 @@ def _git(repo: Path, *args: str, check: bool = True) -> subprocess.CompletedProc
 
 
 def create_branch(repo: Path, branch_name: str, start_point: str | None = None) -> None:
+    """Create branch_name in repo if it does not already exist."""
     result = _git(repo, "branch", "--list", branch_name)
     if branch_name not in result.stdout:
         args = ["branch", branch_name]
@@ -24,16 +25,19 @@ def create_branch(repo: Path, branch_name: str, start_point: str | None = None) 
 
 
 def create_worktree(repo: Path, worktree_path: Path, branch: str) -> None:
+    """Add a git worktree at worktree_path checked out to branch."""
     worktree_path.parent.mkdir(parents=True, exist_ok=True)
     _git(repo, "worktree", "add", str(worktree_path), branch)
 
 
 def remove_worktree(repo: Path, worktree_path: Path) -> None:
+    """Remove a git worktree and prune stale worktree entries."""
     _git(repo, "worktree", "remove", str(worktree_path), "--force", check=False)
     _git(repo, "worktree", "prune")
 
 
 def list_worktrees(repo: Path) -> list[str]:
+    """Return a list of worktree paths registered in repo."""
     result = _git(repo, "worktree", "list", "--porcelain")
     worktrees = []
     for line in result.stdout.splitlines():
