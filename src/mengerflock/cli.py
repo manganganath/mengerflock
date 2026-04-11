@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from pathlib import Path
 
 import click
 
 from mengerflock.config import load_config
 from mengerflock.orchestrator import Orchestrator, init_project
-from mengerflock.state import read_results, read_strategist_log, is_shutdown_requested
+from mengerflock.state import read_results, read_strategist_log, is_shutdown_requested, read_baseline_holdout
 
 
 @click.group()
@@ -95,23 +96,55 @@ def report():
         click.echo("No active project.")
         return
 
+    report_dir = Path.cwd() / "report"
+    report_dir.mkdir(exist_ok=True)
+
     results = read_results(state_dir)
     log = read_strategist_log(state_dir)
 
-    click.echo("=" * 60)
-    click.echo("MengerFlock Experiment Report")
-    click.echo("=" * 60)
-    click.echo(f"\nTotal experiments: {len(results)}")
-    click.echo(f"Strategist actions: {len(log)}")
+    baseline = read_baseline_holdout(state_dir)
+    baseline_note = ""
+    if not baseline:
+        baseline_note = "\n> **Note:** Baseline holdout results were not captured.\n"
 
     keeps = [r for r in results if r["status"] == "keep"]
-    if keeps:
-        best = min(keeps, key=lambda r: float(r["metric_avg"]))
-        click.echo(f"\nBest result:")
-        click.echo(f"  Module: {best['module']}")
-        click.echo(f"  Commit: {best['commit']}")
-        click.echo(f"  Metric (avg): {best['metric_avg']}")
-        click.echo(f"  Hypothesis: {best['hypothesis']}")
+    discards = [r for r in results if r["status"] == "discard"]
+    crashes = [r for r in results if r["status"] == "crash"]
 
-    click.echo(f"\nFull results in: state/results.tsv")
-    click.echo(f"Strategist log in: state/strategist_log.tsv")
+    report_content = f"""# MengerFlock Experimentation Report
+
+**Generated:** {datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")}
+{baseline_note}
+## Summary
+
+- Total experiments: {len(results)}
+- Keeps: {len(keeps)}
+- Discards: {len(discards)}
+- Crashes: {len(crashes)}
+- Strategist actions: {len(log)}
+
+## Experiment Log
+
+| Timestamp | Researcher | Module | Status | Hypothesis |
+|---|---|---|---|---|
+"""
+    for r in results:
+        report_content += f"| {r.get('timestamp', '')} | {r.get('researcher', '')} | {r.get('module', '')} | {r.get('status', '')} | {r.get('hypothesis', '')} |\n"
+
+    report_content += "\n## Strategist Log\n\n"
+    for entry in log:
+        report_content += f"- **{entry.get('timestamp', '')}** {entry.get('action', '')}: {entry.get('details', '')}\n"
+
+    report_path = report_dir / "experimentation-report.md"
+    report_path.write_text(report_content)
+    click.echo(f"Experimentation report: {report_path}")
+
+    if baseline and keeps:
+        best = min(keeps, key=lambda r: float(r["metric_avg"]))
+        baseline_avg = float(baseline[0]["metric_avg"])
+        if float(best["metric_avg"]) < baseline_avg:
+            click.echo("Evolved algorithm beats baseline — research paper should be produced by strategist.")
+        else:
+            click.echo("Evolved algorithm did not beat baseline — no research paper.")
+    else:
+        click.echo("Insufficient data for holdout comparison.")
