@@ -217,7 +217,7 @@ Read the reference paper carefully. Identify:
 - Which benchmark instances did they test on?
 - How many runs/seeds per instance?
 - What time budgets did they use?
-- What metrics did they report (average tour length, best tour length, gap to optimal, success rate)?
+- What metrics did they report (e.g., average objective value, best objective value, gap to optimal, success rate)?
 - What tables and figures did they present?
 
 **Step 2: Reproduce the original paper's evaluation as closely as possible.**
@@ -270,7 +270,7 @@ The research report must be written so that a researcher with domain knowledge c
 6. **Results** — Present in the **same table format** as the original paper where possible:
    - Table: per-instance results showing Original Paper's results, Our Baseline (same seed, our hardware), Our Evolved (our hardware)
    - This three-column comparison accounts for hardware differences
-   - Include: best tour length, average tour length, gap to optimal (%), number of optimal solutions found
+   - Include: best objective value, average objective value, gap to optimal/best-known (%), number of optimal solutions found
    - Per-seed breakdown for instances with high variance
    - Aggregate statistics across all instances
 
