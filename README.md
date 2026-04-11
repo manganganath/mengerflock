@@ -92,9 +92,9 @@ pip install -e .
 
 MengerFlock uses two folder types:
 
-**Template folder** (e.g., `tsp/`, `binpacking/`) — contains heavy, read-only data. Not tracked in git.
+**Template folder** (e.g., `my-project/`) — contains heavy, read-only data. Not tracked in git.
 ```
-tsp/
+my-project/
 ├── original-seed/      # unmodified algorithm as published (never touched)
 ├── datasets/
 │   ├── holdout/        # established benchmark instances
@@ -105,10 +105,10 @@ tsp/
 
 All benchmark data lives in the template — holdout instances provided by the user, plus any additional instances the strategist downloads from the reference paper during Phase 3 evaluation.
 
-**Experiment folder** (e.g., `tsp-experiment-1/`) — contains only what the experiment produces. Tracked in git.
+**Experiment folder** (e.g., `my-project-experiment-1/`) — contains only what the experiment produces. Tracked in git.
 ```
-tsp-experiment-1/
-├── config.yaml         # references template paths (../tsp/original-seed/, ../tsp/datasets/holdout/)
+my-project-experiment-1/
+├── config.yaml         # references template paths (../my-project/original-seed/, etc.)
 ├── seed/               # starting point → becomes the evolved code via compositions
 ├── eval.sh             # evaluation script (copied from template)
 ├── prompts/            # agent instructions
@@ -126,9 +126,9 @@ The strategist will generate `datasets/train/` and `datasets/validation/` at run
 project:
   name: "my-algorithm"
   seed_path: "./seed/"                    # starting point for this iteration (in experiment folder)
-  original_seed_path: "../tsp/original-seed/"  # unmodified algorithm in template folder
+  original_seed_path: "../my-project/original-seed/"  # unmodified algorithm in template folder
   language: "c"
-  # paper: "../tsp/paper.pdf"              # optional: paper describing the original-seed algorithm
+  # paper: "../my-project/paper.pdf"       # optional: paper describing the original-seed algorithm
                                             # must correspond to the code in original_seed_path
                                             # research report will challenge this paper directly
 
@@ -145,9 +145,9 @@ build:
   binary: "./solver"         # use "python solver.py" for Python
 
 benchmarks:
-  small: ["../tsp/datasets/holdout/small_*.txt"]
-  medium: ["../tsp/datasets/holdout/med_*.txt"]
-  large: ["../tsp/datasets/holdout/large_*.txt"]
+  small: ["../my-project/datasets/holdout/small_*"]
+  medium: ["../my-project/datasets/holdout/med_*"]
+  large: ["../my-project/datasets/holdout/large_*"]
 
 evaluation:
   metric: "gap_to_optimal"
