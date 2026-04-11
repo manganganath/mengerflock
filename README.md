@@ -1,8 +1,8 @@
-# AlgoForge
+# MengerFlock
 
 A hierarchical multi-agent system that evolves algorithms through autonomous experimentation.
 
-Give AlgoForge a codebase, a build step, and a benchmark — it will coordinate a team of AI coding agents to systematically improve the code's performance. The strategist researches the domain, decomposes the problem, and directs parallel researchers who each evolve a piece of the codebase in a tight loop: hypothesize, implement, build, evaluate, keep or revert.
+Give MengerFlock a codebase, a build step, and a benchmark — it will coordinate a team of AI coding agents to systematically improve the code's performance. The strategist researches the domain, decomposes the problem, and directs parallel researchers who each evolve a piece of the codebase in a tight loop: hypothesize, implement, build, evaluate, keep or revert.
 
 ## Architecture
 
@@ -40,7 +40,7 @@ The orchestrator is a thin Python layer that launches a tmux session with one wi
 
 **Wildcard** — an optional unconstrained researcher. No assignment from the strategist, no web search, no experiment history. Reads only the source code and benchmarks. Forces genuine novelty by avoiding the convergence trap where all researchers gravitate toward the same ideas.
 
-## What Can AlgoForge Evolve?
+## What Can MengerFlock Evolve?
 
 Any codebase where you can compile, run against benchmarks, and get a number back. The requirements are simple: code + build step + measurable metric.
 
@@ -52,7 +52,7 @@ Any codebase where you can compile, run against benchmarks, and get a number bac
 | **ML Training** | Neural network training loops, optimizer implementations, data augmentation |
 | **Compilers** | Optimization passes, code generation heuristics, register allocation |
 
-The domain-agnostic design means AlgoForge doesn't need to be pre-configured for any specific problem type. The strategist researches the domain autonomously via web search.
+The domain-agnostic design means MengerFlock doesn't need to be pre-configured for any specific problem type. The strategist researches the domain autonomously via web search.
 
 ## User Guide
 
@@ -63,11 +63,11 @@ The domain-agnostic design means AlgoForge doesn't need to be pre-configured for
 - tmux (`brew install tmux`)
 - Git
 
-### Step 1: Install AlgoForge
+### Step 1: Install MengerFlock
 
 ```bash
-git clone https://github.com/manganganath/AlgoForge.git
-cd AlgoForge
+git clone https://github.com/manganganath/mengerflock.git
+cd mengerflock
 pip install -e .
 ```
 
@@ -141,10 +141,10 @@ stopping_conditions:
 cd my-project
 
 # Initialize (creates state directory, git branches)
-algoforge init --config config.yaml
+mengerflock init --config config.yaml
 
 # Run (launches tmux session with all agents)
-algoforge run config.yaml
+mengerflock run config.yaml
 ```
 
 ### Step 5: Monitor
@@ -152,13 +152,13 @@ algoforge run config.yaml
 **Live dashboard** (recommended) — open a separate terminal:
 ```bash
 cd my-project
-bash path/to/algoforge/src/algoforge/dashboard.sh state 5
+bash path/to/mengerflock/src/mengerflock/dashboard.sh state 5
 ```
 
 Shows real-time progress: per-researcher keep/discard counts, recent experiments, strategist actions.
 
 ```
-AlgoForge Dashboard  14:32:15                    Runtime: 42m 3s
+MengerFlock Dashboard  14:32:15                    Runtime: 42m 3s
 Experiments: 17    keep: 4    discard: 11    crash: 2
 
 r1  (core_logic)    ##........  1 keep / 5 disc
@@ -176,23 +176,23 @@ Strategist: 4 actions
 
 **tmux** — attach directly to watch agents work:
 ```bash
-tmux attach -t algoforge
+tmux attach -t mengerflock
 # Ctrl+B then 1-5 to switch windows, Ctrl+B d to detach
 ```
 
 **CLI** — quick status check:
 ```bash
-algoforge status
+mengerflock status
 ```
 
 ### Step 6: Stop and Report
 
 ```bash
 # Graceful stop — finishes current iterations, strategist writes report
-algoforge stop
+mengerflock stop
 
 # Or generate report from a completed/stopped run
-algoforge report
+mengerflock report
 ```
 
 The strategist writes a comprehensive report to `report/report.md` covering what was tried, what worked, benchmark comparisons, and a description of the evolved algorithm.
@@ -238,7 +238,7 @@ Researchers evaluate mutations with a cost-aware, progressive approach:
 
 ### Dataset Split
 
-AlgoForge uses a train/validation/holdout split to ensure improvements generalize rather than overfitting to specific benchmark instances:
+MengerFlock uses a train/validation/holdout split to ensure improvements generalize rather than overfitting to specific benchmark instances:
 
 | Dataset | Created by | Used by | Purpose |
 |---|---|---|---|
@@ -309,7 +309,7 @@ The strategist doesn't just observe — it actively steers researchers:
 
 ## Design Principles
 
-- **Agents are coding tool sessions**, not custom LLM infrastructure. AlgoForge doesn't make API calls — it launches Claude Code / Codex sessions pointed at instruction files.
+- **Agents are coding tool sessions**, not custom LLM infrastructure. MengerFlock doesn't make API calls — it launches Claude Code / Codex sessions pointed at instruction files.
 - **Git is the state manager.** Worktrees for isolation, branches for versioning, tags for milestones.
 - **Filesystem for communication.** Agents read/write a shared `state/` directory. No queues, no IPC.
 - **The strategist has web search.** It can autonomously research unfamiliar domains, find papers, and discover seed code.
@@ -321,11 +321,11 @@ The strategist doesn't just observe — it actively steers researchers:
 
 | Tool | Purpose | Usage |
 |---|---|---|
-| `algoforge init` | Initialize project | `algoforge init --config config.yaml` |
-| `algoforge run` | Launch all agents via tmux | `algoforge run config.yaml` |
-| `algoforge status` | Check progress | `algoforge status` |
-| `algoforge stop` | Graceful shutdown | `algoforge stop` |
-| `algoforge report` | Generate final report | `algoforge report` |
+| `mengerflock init` | Initialize project | `mengerflock init --config config.yaml` |
+| `mengerflock run` | Launch all agents via tmux | `mengerflock run config.yaml` |
+| `mengerflock status` | Check progress | `mengerflock status` |
+| `mengerflock stop` | Graceful shutdown | `mengerflock stop` |
+| `mengerflock report` | Generate final report | `mengerflock report` |
 | `dashboard.sh` | Live terminal dashboard | `bash dashboard.sh state 5` |
 | `generate_instances.py` | Create synthetic benchmarks | `python generate_instances.py --output datasets/train --count 10 --sizes small,medium,large --distributions uniform,clustered` |
 | `eval.sh` | Run binary on one instance | `./eval.sh ./binary instance.tsp 42 60` |
@@ -333,8 +333,8 @@ The strategist doesn't just observe — it actively steers researchers:
 ## Project Structure
 
 ```
-algoforge/
-├── src/algoforge/
+mengerflock/
+├── src/mengerflock/
 │   ├── cli.py                  # CLI entry point
 │   ├── config.py               # config loading and validation
 │   ├── state.py                # results.tsv, assignments, shutdown
@@ -350,3 +350,7 @@ algoforge/
 ├── examples/                   # example project configs
 └── tests/
 ```
+
+---
+
+MengerFlock honors Karl Menger, an early pioneer of combinatorial optimization and the Traveling Salesman Problem, and "flock" reflects a coordinated group of AI research agents working together under a lead strategist to evolve better algorithms.
