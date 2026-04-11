@@ -234,13 +234,15 @@ class Orchestrator:
                 print("Strategist requests Phase 2 re-entry.")
                 return "reenter_phase2"
 
-            # Check if tmux session still alive
+            # Check if strategist window still alive
             result = subprocess.run(
-                ["tmux", "list-windows", "-t", "mengerflock"],
-                capture_output=True, check=False
+                ["tmux", "list-windows", "-t", "mengerflock", "-F", "#{window_name}"],
+                capture_output=True, text=True, check=False
             )
-            if result.returncode != 0:
-                return "shutdown"
+            if result.returncode != 0 or "strategist" not in result.stdout:
+                print("WARNING: Strategist exited before completing Phase 3.")
+                print("Run 'mengerflock report' to generate reports from experiment data.")
+                return "complete"  # don't block forever
 
             time.sleep(poll_interval)
         return "shutdown"
@@ -381,11 +383,12 @@ class Orchestrator:
             # Stop researchers, keep strategist alive for Phase 3
             self.stop_researchers()
 
-            if exit_reason == "exited" or exit_reason == "shutdown":
-                print("Experiment ended.")
+            if exit_reason == "exited":
+                print("All sessions exited unexpectedly.")
                 return
 
             # === Phase 3: Strategist evaluates holdout and writes reports ===
+            # Triggered by: stopping conditions, shutdown signal, or strategist's phase2_complete
             print("=== Phase 3: Evaluation and reporting ===")
             phase3_result = self.wait_for_phase3()
 

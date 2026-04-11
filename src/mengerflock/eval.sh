@@ -33,6 +33,7 @@ PROBLEM_FILE = $INSTANCE
 TOUR_FILE = $TOUR_FILE
 SEED = $SEED
 RUNS = 1
+TIME_LIMIT = $TIMEOUT
 EOF
 
 # macOS-compatible timeout using perl
