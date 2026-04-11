@@ -9,3 +9,7 @@ __pycache__/
 .worktrees/
 .venv/
 *.egg-info/
+
+# Example projects: track experiment results, ignore templates (which contain large holdout datasets)
+example-projects/binpacking/
+example-projects/tsp/
