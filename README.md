@@ -38,7 +38,23 @@ The orchestrator is a thin Python layer that launches a tmux session with one wi
 
 **Researchers** — N parallel workers (defaults to one per module, configurable). Each runs autonomously in its own git worktree, evolving its assigned module. The loop: read the code, form a hypothesis, edit, commit, build, benchmark, keep or revert. Indefinitely, until stopped.
 
-**Wildcard** — an optional unconstrained researcher. No assignment from the strategist, no web search, no experiment history. Reads only the source code and benchmarks. Forces genuine novelty by avoiding the convergence trap where all researchers gravitate toward the same ideas.
+**Wildcard** — an optional unconstrained researcher. No assignment from the strategist, no web search, no experiment history. Works from the **original seed code** (not the evolving main branch) and reads only the high-level objectives. Writes results to the shared log, but cannot see other researchers' results or strategist directions. Forces genuine novelty by avoiding the convergence trap where all researchers gravitate toward the same ideas. The strategist reads wildcard findings and cross-pollinates useful ideas to regular researchers (one-way channel).
+
+## Inputs and Outputs
+
+**Inputs:**
+| Input | Required | Description |
+|---|---|---|
+| Seed codebase | Yes | The algorithm to evolve. A folder path or git URL. |
+| Benchmarks | Yes | Holdout instances with known optimal values for evaluation. |
+| Reference paper | No | URL or local path. If provided, the strategist reads it for domain context and mirrors its format in the research paper output. |
+
+**Outputs:**
+| Output | Condition | Path |
+|---|---|---|
+| Evolved codebase | Always | Main branch of the experiment repo |
+| Experimentation report | Always | `report/experimentation-report.md` — full log of all iterations, agents, compositions |
+| Research paper | Only if evolved beats baseline | `report/research-paper.md` — near-publication quality, enough detail for reproduction |
 
 ## What Can MengerFlock Evolve?
 
@@ -91,9 +107,11 @@ The strategist will generate `datasets/train/` and `datasets/validation/` automa
 ```yaml
 project:
   name: "my-algorithm"
-  seed_path: "./seed/"
+  seed_path: "./seed/"             # folder path or git URL (e.g., https://github.com/user/repo.git)
   language: "c"
-  # paper: "https://..."   # optional: URL or local path to reference paper
+  # paper: "https://..."           # optional: URL or local path to reference paper
+                                    # if provided, strategist reads it for domain context
+                                    # and mirrors its format in the output research paper
 
 modules:                    # the strategist can refine these after analyzing the code
   - name: "core_logic"
@@ -133,6 +151,7 @@ stopping_conditions:
   max_total_iterations: 500
   max_hours: 24
   stagnation_window: 50
+  # max_reentries: 2               # max Phase 2 re-entries after failed Phase 3 (default: 2)
 ```
 
 ### Step 4: Initialize and Run
@@ -208,7 +227,12 @@ mengerflock stop
 mengerflock report
 ```
 
-The strategist writes a comprehensive report to `report/report.md` covering what was tried, what worked, benchmark comparisons, and a description of the evolved algorithm.
+The strategist writes `report/experimentation-report.md` covering what was tried, what worked, and benchmark comparisons. If the evolved algorithm beats the baseline on holdout, it also writes `report/research-paper.md` — a near-publication-quality paper with full reproduction details.
+
+```bash
+# Reset experiment state (removes state/, .worktrees/, report/, experiment branches)
+mengerflock clean
+```
 
 ### Tips
 
@@ -227,17 +251,20 @@ Each researcher runs this loop autonomously:
 
 ```mermaid
 graph LR
-    H[Hypothesize] --> I[Implement]
+    Int[Check interrupts] --> H[Hypothesize]
+    H --> I[Implement]
     I --> C[Commit]
     C --> B[Build]
     B -->|fail| Fix[Fix or revert]
     Fix --> B
     B -->|pass| E[Evaluate]
     E --> Compare{Better?}
-    Compare -->|yes| Keep[Keep + log]
     Compare -->|no| Discard[Revert + log]
-    Keep --> H
-    Discard --> H
+    Compare -->|yes| Comp{Test on main}
+    Comp -->|pass| Keep[Keep + log]
+    Comp -->|conflict| Discard
+    Keep --> Int
+    Discard --> Int
 ```
 
 ### Evaluation Strategy
@@ -335,6 +362,19 @@ The strategist composes modules **incrementally, best-first**:
 
 This catches conflicts early — e.g., one module speeds up trials while another adds preprocessing that cancels the speedup.
 
+### Composition-First Evaluation
+
+Before a researcher logs a "keep," it must test the change against the current main branch — not just its isolated worktree. This catches composition conflicts early:
+
+1. Researcher makes a change that improves on its branch → candidate keep
+2. Fetch latest main, cherry-pick the change onto it
+3. If cherry-pick has conflicts → discard ("composition conflict")
+4. Build and evaluate on main
+5. If still improves → confirmed keep
+6. If regresses on main → discard ("passed isolated, failed composition")
+
+This prevents the strategist from discovering conflicts late during composition, saving significant time.
+
 ### Active Direction-Setting
 
 The strategist doesn't just observe — it actively steers researchers:
@@ -342,6 +382,7 @@ The strategist doesn't just observe — it actively steers researchers:
 - **Amplify what works** — if a researcher finds a promising direction, update their assignment to explore it deeper
 - **Redirect from dead ends** — if a researcher's keeps get rejected at composition, add that constraint to their assignment
 - **Cross-pollinate insights** — if one researcher discovers that speed matters more than quality, tell the others
+- **Urgent interrupts** — when a researcher must change direction immediately, the strategist writes `state/interrupts/r<id>.md`. The researcher reads and acknowledges it at the start of the next iteration. This is faster than waiting for the researcher to re-read its assignment file.
 - **Escalate on stagnation** — 3+ consecutive failures triggers: reframe objective → widen scope → cross-pollination → reassign
 
 ### Evolution Strategies
@@ -369,6 +410,7 @@ The strategist doesn't just observe — it actively steers researchers:
 | `mengerflock status` | Check progress | `mengerflock status` |
 | `mengerflock stop` | Graceful shutdown | `mengerflock stop` |
 | `mengerflock report` | Generate final report | `mengerflock report` |
+| `mengerflock clean` | Reset experiment state | `mengerflock clean` (or `--force` to skip confirmation) |
 | `dashboard.sh` | Live terminal dashboard | `bash dashboard.sh [state_dir] [refresh_seconds]` |
 | `generate_instances.py` | Create synthetic benchmarks | `python generate_instances.py --output datasets/train --count 10 --sizes small,medium,large --distributions uniform,clustered` |
 | `eval.sh` | Run binary on one instance | `./eval.sh <binary> <instance_file> [seed] [timeout]` |
