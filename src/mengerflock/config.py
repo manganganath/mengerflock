@@ -24,11 +24,9 @@ def _require(raw: dict[str, Any], key: str, context: str = "") -> Any:
 @dataclasses.dataclass
 class ProjectConfig:
     name: str
-    mode: str
+    seed_path: str
     language: str
-    seed_path: Optional[str] = None
-    problem_spec: Optional[str] = None
-    reference_materials: Optional[list[str]] = None
+    paper: str | None = None
 
 
 @dataclasses.dataclass
@@ -97,6 +95,7 @@ class StoppingConditions:
     max_hours: float = 24
     target_improvement: float = 0.5
     stagnation_window: int = 50
+    max_reentries: int = 2
 
 
 @dataclasses.dataclass
@@ -122,21 +121,13 @@ def load_config(path: str | Path) -> MengerFlockConfig:
 
     # Project
     proj_raw = _require(raw, "project")
-    mode = _require(proj_raw, "mode", "project")
-    if mode not in ("evolve", "generate"):
-        raise ConfigError(f"project.mode must be 'evolve' or 'generate', got '{mode}'")
 
     project = ProjectConfig(
         name=_require(proj_raw, "name", "project"),
-        mode=mode,
+        seed_path=_require(proj_raw, "seed_path", "project"),
         language=proj_raw.get("language", ""),
-        seed_path=proj_raw.get("seed_path"),
-        problem_spec=proj_raw.get("problem_spec"),
-        reference_materials=proj_raw.get("reference_materials"),
+        paper=proj_raw.get("paper"),
     )
-
-    if mode == "generate" and not project.problem_spec:
-        raise ConfigError("project.problem_spec is required in generate mode")
 
     # Modules
     modules_raw = _require(raw, "modules")
@@ -213,6 +204,7 @@ def load_config(path: str | Path) -> MengerFlockConfig:
         max_hours=stop_raw.get("max_hours", 24),
         target_improvement=stop_raw.get("target_improvement", 0.5),
         stagnation_window=stop_raw.get("stagnation_window", 50),
+        max_reentries=stop_raw.get("max_reentries", 2),
     )
 
     return MengerFlockConfig(
