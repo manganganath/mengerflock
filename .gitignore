@@ -1,6 +1,6 @@
 docs/
-examples/*
-!examples/binpacking/
+example-projects/*
+!example-projects/binpacking/
 tests/
 __pycache__/
 *.pyc
