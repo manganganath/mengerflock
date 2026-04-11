@@ -272,17 +272,16 @@ The research report must be written so that a researcher with domain knowledge c
 
 3. **Background** — Describe the original algorithm (from the reference paper) in enough detail that a reader can understand what was changed. Summarize the original paper's approach, key design decisions, and reported results.
 
-4. **Algorithm** — This is the core of the paper. For EVERY modification made to the original algorithm:
-   - **What was changed**: which component, which file, which function
-   - **Why it was changed**: what weakness in the original was identified
-   - **Exact new logic**: step-by-step description using numbered steps or pseudocode
-   - **All parameters**: every constant, threshold, iteration count. A reader should be able to set every parameter from the paper alone.
-   - **Data structures**: any new or modified data structures
-   - **Complexity impact**: does this change affect time/space complexity?
+4. **Algorithm** — Describe the **final evolved algorithm** as a complete, standalone algorithm. A reader should understand the full algorithm without needing to read the original paper first.
+   - **Full description**: step-by-step logic of the entire algorithm using numbered steps or pseudocode
+   - **All parameters**: every constant, threshold, iteration count, seed value. A reader should be able to implement the algorithm from this section alone.
+   - **Data structures**: what data structures are used and how they are maintained
+   - **Subroutines**: describe each component/function completely
+   - **Complexity**: time and space complexity
 
-   For unchanged components, state explicitly that they are unchanged. The reader must know exactly what is different from the original.
+   After the full algorithm description, include a subsection **"Differences from [Original Algorithm]"** that summarizes what changed and why. This helps readers who are familiar with the original, but the algorithm section itself must stand alone.
 
-   Think of it this way: if someone had the original paper and this paper, they should be able to apply all modifications without seeing the source code.
+   Think of it this way: if someone deleted the source code and had never read the original paper, they should be able to implement the algorithm from this section.
 
 5. **Experimental Setup** — Platform, compiler/interpreter version, optimization flags, benchmark instances (with source citation), evaluation methodology (number of seeds, timeout per run, total runs), and metrics reported. **Must match or exceed the original paper's evaluation rigor.** If the original paper ran 10 trials, run at least 10. If it tested on 20 instances, test on at least 20.
 
