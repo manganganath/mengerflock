@@ -64,7 +64,11 @@ All shared state is in the `state/` directory at the project root (the directory
 
 6. **Write approved objectives**: After user approval, write the agreed objectives to `state/objectives.md`. This file is readable by ALL agents including the wildcard.
 
-7. **Run baseline on ALL holdout instances** using the **original-seed** (NOT the seed you are evolving). Build from `original-seed/` and evaluate on all holdout instances with full seeds. Store results in `state/baseline_holdout.tsv` using the same TSV format as results.tsv with researcher_id="baseline". This is the ground truth — never overwrite this file. Phase 3 compares the evolved algorithm against this baseline.
+7. **Run baselines on ALL holdout instances**:
+   - **Original seed baseline**: Build from `original-seed/` and evaluate on all holdout instances with full seeds. Store in `state/baseline_holdout.tsv` with researcher_id="original-baseline". This is the ground truth — never overwrite.
+   - **Initial seed baseline**: Build from `seed/` (before any modifications) and evaluate the same way. Store in `state/initial_seed_holdout.tsv` with researcher_id="initial-baseline". If `original-seed/` and `seed/` are identical (first iteration), this will produce the same results — run it anyway for consistency.
+
+   Phase 3 uses both: original baseline for the research report, initial baseline for the re-entry gate.
 
 8. **Create initial assignments**: Write `state/assignments/r<id>.yaml` for each researcher with:
    ```yaml
@@ -194,9 +198,13 @@ When shutdown is requested, follow this EXACT sequence:
 
 1. **Run holdout evaluation** on the evolved codebase (current main). Use full seeds on ALL holdout instances. This is MANDATORY — do NOT skip it.
 
-2. **Load baseline** from `state/baseline_holdout.tsv` (captured in Phase 1).
+2. **Load baseline** from `state/baseline_holdout.tsv` (captured in Phase 1 from `original-seed/`).
 
-3. **Compare**: Does the evolved algorithm beat the baseline on holdout?
+3. **Make TWO comparisons**:
+   - **Evolved vs initial seed** (`seed/` at start of this iteration) — did THIS iteration improve anything?
+   - **Evolved vs original seed** (`original-seed/`, from baseline_holdout.tsv) — have we beaten the published algorithm overall?
+
+   These may differ: if prior iterations already improved the algorithm, the evolved code might beat the original but not the initial seed (meaning this iteration added nothing).
 
 4. **Produce experimentation report** (MANDATORY regardless of outcome):
    Write to `report/experimentation-report.md`:
@@ -208,11 +216,18 @@ When shutdown is requested, follow this EXACT sequence:
    - What didn't work and why
    - Composition history
    - Final algorithm description
-   - Benchmark comparison: baseline vs evolved (holdout results)
+   - Benchmark comparison: original seed vs initial seed vs evolved (holdout results)
 
-5. **IF evolved beats baseline on holdout:**
-   - Produce research paper at `report/research-report.md`
-   - The paper must be near-publication quality. Follow the guidelines below.
+5. **IF evolved beats ORIGINAL SEED on holdout:**
+   - Produce research report at `report/research-report.md`
+   - The report must be near-publication quality. Follow the guidelines below.
+
+6. **IF evolved does NOT beat INITIAL SEED** (this iteration made no progress):
+   - Ask the user: "This iteration did not improve upon the initial seed. Would you like to return to Phase 2 for more iterations?"
+   - If user says yes: signal Phase 2 re-entry (see below)
+   - If user says no: proceed to finalize
+
+   Note: Even if this iteration made no progress, the research report is still produced if the evolved code beats the original seed (improvements may have come from prior iterations).
 
 ### Phase 3 Evaluation: Challenging the Original Paper
 
@@ -291,19 +306,6 @@ The research report must be written so that a researcher with domain knowledge c
 10. **Reproducibility** — Exact command to run the solver. Input/output format. Compiler version and flags. Dependencies. The complete diff against the original seed code. If the diff is large, include it as an appendix.
 
 11. **References** — Cite the original paper, the seed codebase, the benchmark dataset, and any other relevant work.
-
-6. **IF evolved does NOT beat baseline:**
-   - Do NOT produce a research paper
-   - Ask the user: "The evolved algorithm did not outperform the original on the holdout dataset. Would you like to return to Phase 2 for more iterations?"
-   - If user says yes: signal Phase 2 re-entry and wait for researchers:
-     ```bash
-     touch state/reenter_phase2
-     ```
-     Then follow the warm re-entry steps below.
-   - If user says no: signal experiment complete and stop:
-     ```bash
-     touch state/phase3_complete
-     ```
 
 7. **Verify artifacts before signaling complete**:
    Before writing `state/phase3_complete`, verify ALL required outputs exist:
