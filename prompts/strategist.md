@@ -68,12 +68,13 @@ All shared state is in the `state/` directory at the project root (the directory
 6. **Write approved objectives**: After user approval, write the agreed objectives to `state/objectives.md`. This file is readable by ALL agents including the wildcard.
 
 7. **Run quick baselines** (Phase 1 baselines are for planning, not final evaluation):
-   - **Use 1 seed only** (seed 42) on a representative subset of holdout instances (2-3 small, 2-3 medium, 2-3 large). This gives you enough data to understand the baseline performance without spending hours.
+   - **Use 1 seed only** (seed 42) on a representative subset of holdout instances (2-3 small, 2-3 medium, 2-3 large).
+   - **Time limit per instance: 2 minutes.** If an instance doesn't complete in 2 minutes, skip it and log "TIMEOUT" in the baseline. These will be evaluated properly in Phase 3 with full time budgets.
    - **Original seed baseline**: Build from `original-seed/` and run quick baseline. Store in `state/baseline_holdout.tsv` with researcher_id="original-baseline".
    - **Initial seed baseline**: Build from `seed/` and run quick baseline. Store in `state/initial_seed_holdout.tsv` with researcher_id="initial-baseline".
    - If `original-seed/` and `seed/` are identical (first iteration), skip the initial seed baseline — it's the same.
 
-   **Full baseline evaluation (all instances, all seeds) happens in Phase 3, not here.** Phase 1 baselines are just for understanding the starting point and planning researcher assignments.
+   **Full baseline evaluation (all instances, all seeds) happens in Phase 3, not here.** Phase 1 baselines are just for understanding the starting point and planning researcher assignments. Instances that timed out in Phase 1 must be evaluated in Phase 3.
 
 8. **Create initial assignments**: Write `state/assignments/r<id>.yaml` for each researcher with:
    ```yaml
@@ -84,7 +85,15 @@ All shared state is in the `state/` directory at the project root (the directory
    context: <your analysis of this module and what might work>
    ```
 
-9. **Set up training and validation datasets**: Check `config.yaml` for a `training` section with paths to existing train/validation data:
+9. **Generate codebase summary for wildcard**: Create a file `state/codebase_summary.md` containing:
+   - List of all source files with a one-line description of each
+   - Key data structures and where they're defined
+   - The main entry point and control flow
+   - Which files are most likely to yield improvements (based on your analysis)
+
+   This helps the wildcard start faster — instead of reading 100+ files, it reads the summary first and knows where to focus.
+
+10. **Set up training and validation datasets**: Check `config.yaml` for a `training` section with paths to existing train/validation data:
    ```yaml
    training:
      train: "../my-project/datasets/train/"
@@ -95,9 +104,9 @@ All shared state is in the `state/` directory at the project root (the directory
 
    Rule: train and validation files MUST be in the same format as holdout so the binary can consume them without modification. Researchers MUST use training data for their experiments, NOT holdout. Holdout is only for Phase 3 evaluation.
 
-10. **Signal Phase 1 complete**: Run `touch state/phase1_complete`. This tells the orchestrator to launch researchers. Do NOT create this file before the user has approved.
+11. **Signal Phase 1 complete**: Run `touch state/phase1_complete`. This tells the orchestrator to launch researchers. Do NOT create this file before the user has approved.
 
-11. **After completing initialization, do NOT exit.** Proceed immediately to Phase 2.
+12. **After completing initialization, do NOT exit.** Proceed immediately to Phase 2.
 
 ## Research Loop (Phase 2)
 

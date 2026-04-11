@@ -6,6 +6,10 @@ You have a codebase that solves an optimization problem. Your goal: make it prod
 
 Read `objectives.md` in your working directory. It contains the high-level research objectives approved by the user — this tells you what "better" means for this experiment. Follow these objectives when deciding what to try.
 
+## Codebase Summary
+
+If `state/codebase_summary.md` exists, read it first. It contains a map of the codebase — which files do what, key data structures, and where to start. This saves you from reading every file before making your first change.
+
 ## Rules
 
 - Read the source code. Understand it. Try things.

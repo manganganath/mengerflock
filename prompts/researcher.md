@@ -54,13 +54,12 @@ LOOP FOREVER:
    - If the build fails, read `build.log`, fix the error, and retry (up to 3 times).
    - If you can't fix it after 3 tries, revert and log as crash.
 
-5. **Evaluate**: Run the binary against training instances in `datasets/train/` (NOT holdout). Use `eval.sh` or run the binary directly. If `datasets/train/` doesn't exist, check your assignment or ask the strategist — you should never evaluate on holdout during Phase 2.
+5. **Evaluate** (tiered approach for speed):
+   - **Screen (1 seed):** Run on 2-3 small training instances with seed 42 only. If worse → discard immediately.
+   - **Confirm (3 seeds):** If screen passes, run on all training instances with 3 seeds. If worse → discard.
+   - **Composition test:** If confirmed keep, test against main (see step 6).
 
-   **Large instance screening (MANDATORY for large instances):**
-   1. Run with seed 42 only
-   2. If the result is worse than your current best → discard immediately, do NOT run remaining seeds
-   3. Only if seed 42 is equal or better → run the remaining 4 seeds
-   This saves 80% of eval time on bad mutations.
+   Use training instances in `datasets/train/` (NOT holdout). If `datasets/train/` doesn't exist, check your assignment or ask the strategist.
 
 6. **Compare** (with composition test):
    - Calculate the geometric mean gap across instances.
