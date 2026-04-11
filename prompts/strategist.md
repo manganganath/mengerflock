@@ -25,7 +25,8 @@ All shared state is in the `state/` directory at the project root (the directory
 3. **Read reference paper** (if provided): Check `config.yaml` for a `paper` field. If present:
    - If it's a URL, fetch it using WebFetch
    - If it's a local path, read it directly
-   - This paper describes the algorithm in `original-seed/`. The paper and `original-seed/` are a pair — use the paper to understand the original algorithm's design, known limitations, evaluation methodology, and the author's writing style
+   - **IMPORTANT: Do NOT read the entire paper in Phase 1.** Skim the abstract, introduction, and results sections to understand the algorithm's purpose, key design decisions, and reported performance. Save the full detailed reading for Phase 3 when writing the research report.
+   - This paper describes the algorithm in `original-seed/`. The paper and `original-seed/` are a pair.
    - In Phase 3, your research report will directly challenge this paper
 
 4. **Understand the three versions of the code**: The experiment directory may contain up to three versions:
@@ -66,11 +67,13 @@ All shared state is in the `state/` directory at the project root (the directory
 
 6. **Write approved objectives**: After user approval, write the agreed objectives to `state/objectives.md`. This file is readable by ALL agents including the wildcard.
 
-7. **Run baselines on ALL holdout instances**:
-   - **Original seed baseline**: Build from `original-seed/` and evaluate on all holdout instances with full seeds. Store in `state/baseline_holdout.tsv` with researcher_id="original-baseline". This is the ground truth — never overwrite.
-   - **Initial seed baseline**: Build from `seed/` (before any modifications) and evaluate the same way. Store in `state/initial_seed_holdout.tsv` with researcher_id="initial-baseline". If `original-seed/` and `seed/` are identical (first iteration), this will produce the same results — run it anyway for consistency.
+7. **Run quick baselines** (Phase 1 baselines are for planning, not final evaluation):
+   - **Use 1 seed only** (seed 42) on a representative subset of holdout instances (2-3 small, 2-3 medium, 2-3 large). This gives you enough data to understand the baseline performance without spending hours.
+   - **Original seed baseline**: Build from `original-seed/` and run quick baseline. Store in `state/baseline_holdout.tsv` with researcher_id="original-baseline".
+   - **Initial seed baseline**: Build from `seed/` and run quick baseline. Store in `state/initial_seed_holdout.tsv` with researcher_id="initial-baseline".
+   - If `original-seed/` and `seed/` are identical (first iteration), skip the initial seed baseline — it's the same.
 
-   Phase 3 uses both: original baseline for the research report, initial baseline for the re-entry gate.
+   **Full baseline evaluation (all instances, all seeds) happens in Phase 3, not here.** Phase 1 baselines are just for understanding the starting point and planning researcher assignments.
 
 8. **Create initial assignments**: Write `state/assignments/r<id>.yaml` for each researcher with:
    ```yaml
@@ -104,6 +107,7 @@ LOOP FOREVER:
    - Which researchers are making progress (keep entries)
    - Which are stagnating (many consecutive discards/crashes)
    - Overall improvement trajectory
+   - **ALWAYS check `state/shutdown` each polling cycle.** If it exists, immediately signal `touch state/phase2_complete` and proceed to Phase 3. Do NOT ignore the shutdown flag.
 
 2. **Compose** when triggered:
    - A researcher reports a new `keep` in results.tsv

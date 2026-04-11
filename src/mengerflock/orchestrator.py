@@ -364,11 +364,23 @@ class Orchestrator:
         if self.config.agents.wildcard:
             self.launch_wildcard()
 
+    def _clear_stale_signals(self) -> None:
+        """Remove stale phase signals and shutdown flag from a previous run."""
+        for name in ["shutdown", "phase1_complete", "phase2_complete",
+                      "phase3_complete", "reenter_phase2"]:
+            path = self.state_dir / name
+            if path.exists():
+                path.unlink()
+                print(f"  Cleared stale signal: {name}")
+
     def run(self) -> None:
         """Run the full MengerFlock experiment loop (Phases 1, 2, 3)."""
         self.setup_signal_handlers()
         max_reentries = self.config.stopping_conditions.max_reentries
         reentry_count = 0
+
+        # Clear stale signals from any previous run
+        self._clear_stale_signals()
 
         # Create tmux session (kill any stale session first to avoid collision)
         self._ensure_clean_tmux_session()
