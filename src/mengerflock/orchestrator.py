@@ -320,6 +320,9 @@ class Orchestrator:
         """Wait for strategist to complete Phase 1 (user approval gate).
         Returns True if Phase 1 completed, False if shutdown was requested."""
         print("Waiting for strategist to complete Phase 1 (user approval)...")
+        print("  The strategist is researching the domain and preparing a plan.")
+        print("  Approve it in tmux:  tmux attach -t mengerflock")
+        print("")
         while not self._shutdown:
             if is_phase1_complete(self.state_dir):
                 print("Phase 1 complete. Launching researchers.")
@@ -394,6 +397,14 @@ class Orchestrator:
         # === Phase 2: Researchers evolve the codebase ===
         while True:
             print(f"=== Phase 2: Research loop (attempt {reentry_count + 1}) ===")
+            print("  Researchers are evolving the codebase autonomously.")
+            dashboard_path = Path(__file__).resolve().parent / "dashboard.sh"
+            print("  Monitor progress:")
+            print(f"    Dashboard:  bash {dashboard_path} state 15")
+            print("    tmux:       tmux attach -t mengerflock")
+            print("    Status:     mengerflock status")
+            print("    Stop:       mengerflock stop")
+            print("")
             self.launch_all_researchers()
 
             exit_reason = self.monitor_phase2()
@@ -418,6 +429,9 @@ class Orchestrator:
             # === Phase 3: Strategist evaluates holdout and writes reports ===
             # Triggered by: stopping conditions, shutdown signal, or strategist's phase2_complete
             print("=== Phase 3: Evaluation and reporting ===")
+            print("  Strategist is running holdout evaluation and writing reports.")
+            print("  Watch progress:  tmux attach -t mengerflock")
+            print("")
             phase3_result = self.wait_for_phase3()
 
             if phase3_result == "complete":
