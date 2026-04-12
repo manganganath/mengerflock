@@ -456,9 +456,17 @@ The strategist doesn't just observe — it actively steers researchers:
 | `mengerflock stop` | Graceful shutdown | `mengerflock stop` |
 | `mengerflock report` | Generate final report | `mengerflock report` |
 | `mengerflock clean` | Reset experiment state | `mengerflock clean` (or `--force` to skip confirmation) |
-| `dashboard.sh` | Live terminal dashboard | `bash dashboard.sh [state_dir] [refresh_seconds]` |
-| `generate_instances.py` | Create synthetic benchmarks | `python generate_instances.py --output datasets/train --count 10 --sizes small,medium,large --distributions uniform,clustered` |
-| `eval.sh` | Run binary on one instance | `./eval.sh <binary> <instance_file> [seed] [timeout]` |
+
+**Example — creating an experiment from the included template:**
+```bash
+# First iteration (seed = original seed)
+mengerflock new project-template my-algo-experiment-1
+
+# Second iteration (seed = evolved code from experiment-1)
+mengerflock new project-template my-algo-experiment-2 --seed-from my-algo-experiment-1/seed
+```
+
+An example template is included at `project-template/` showing the expected folder structure. Copy it and fill in your own code, benchmarks, and evaluation script.
 
 ## Project Structure
 
@@ -477,7 +485,13 @@ mengerflock/
 │   ├── strategist.md           # strategist agent instructions
 │   ├── researcher.md           # researcher agent instructions
 │   └── wildcard.md             # wildcard agent instructions
-└── projects/                    # experiment templates and results
+├── project-template/             # template skeleton — copy and fill in
+│   ├── original-seed/           # place your unmodified algorithm here
+│   ├── datasets/holdout/        # place your benchmark instances here
+│   ├── config.yaml              # sample config — edit for your project
+│   ├── eval.sh                  # your evaluation script
+│   └── paper.pdf                # optional: reference paper describing the algorithm
+└── projects/                    # your experiment templates and results (gitignored)
 ```
 
 ## Citation
