@@ -188,6 +188,12 @@ cd my-project
 mengerflock run
 ```
 
+This launches a tmux session with one window per agent. Attach to it to interact with the strategist (e.g., approve the Phase 1 plan):
+
+```bash
+tmux attach -t mengerflock
+```
+
 ### Step 5: Monitor
 
 **Live dashboard** (recommended) — open a separate terminal:

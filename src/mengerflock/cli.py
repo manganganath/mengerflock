@@ -30,7 +30,13 @@ def run(config_path: str) -> None:
         init_project(project_dir, config)
 
     orchestrator = Orchestrator(project_dir, config)
-    click.echo(f"Starting MengerFlock: {config.agents.researchers.count} researchers")
+    click.echo(f"Starting MengerFlock: {config.project.name}")
+    click.echo("")
+    click.echo("Agents are running in tmux. To interact:")
+    click.echo("  tmux attach -t mengerflock        # attach to the session")
+    click.echo("  Ctrl+B then n/p                   # switch between agent windows")
+    click.echo("  Ctrl+B then d                     # detach (agents keep running)")
+    click.echo("")
     orchestrator.run()
 
 
@@ -195,3 +201,5 @@ def new(template: str, experiment_name: str, seed_from: str | None) -> None:
     click.echo(f"  mengerflock run")
 
 
+if __name__ == "__main__":
+    main()
