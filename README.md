@@ -140,7 +140,7 @@ stateDiagram-v2
     Phase2 --> Phase3: Stopping condition or phase2_complete
 
     Phase3: Phase 3 — Evaluate & Report
-    Phase3 --> [*]: phase3_complete
+    Phase3 --> [*]: Terminate
     Phase3 --> Phase2: User approves re-entry (reenter_phase2)
 
     state Phase1 {
