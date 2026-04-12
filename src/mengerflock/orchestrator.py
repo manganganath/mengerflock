@@ -396,8 +396,7 @@ class Orchestrator:
 
         # === Phase 2: Researchers evolve the codebase ===
         while True:
-            if self.start_time is None:
-                self.start_time = time.time()
+            self.start_time = time.time()
             print(f"=== Phase 2: Research loop (attempt {reentry_count + 1}) ===")
             print("  Researchers are evolving the codebase autonomously.")
             dashboard_path = Path(__file__).resolve().parent / "dashboard.sh"
