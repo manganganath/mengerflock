@@ -1,6 +1,0 @@
-timestamp	action	details
-2026-04-11T04:59:39	init	Phase 1 complete. Baseline: FFD=1622 bins, LB=1593, gap=29. Researchers: r1(initial_packing), r2(post_processing), w1(wildcard). Training: 10 instances, Validation: 6 instances.
-2026-04-11T05:00:21	phase2_start	Launched r1(initial_packing) and r2(post_processing) researchers in parallel
-2026-04-11T05:19:09	composition	Merged r1/initial_packing to main. Total: 1622->1610 (-12 bins). Tagged composition-v1.
-2026-04-11T05:32:45	composition-final	Final composition on main. Total: 1610 bins (-12 from baseline 1622). Gap to LB: 17. Improvements: med02(39), med03(97), med04(43), med05(114), lrg01(293), lrg02(339), lrg03(503). No regressions.
-2026-04-11T05:34:30	phase3_complete	Final holdout: 1610 bins (baseline 1622, -12). Reports written. Experiment complete.
