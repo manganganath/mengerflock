@@ -28,7 +28,7 @@ Any codebase where you can compile, run against benchmarks, and get a number bac
 
 The domain-agnostic design means MengerFlock doesn't need to be pre-configured for any specific problem type. The strategist researches the domain autonomously via web search.
 
-> **Note:** MengerFlock has been tested on combinatorial optimization (TSP, bin packing) but not rigorously across all listed domains. It should work for any domain that fits the code + build + metric pattern — your mileage may vary.
+> **Note:** MengerFlock has been tested on a few combinatorial optimization problems, but not rigorously across all listed domains. It should work for any domain that fits the code + build + metric pattern, but your mileage may vary.
 
 ## How It Works
 
