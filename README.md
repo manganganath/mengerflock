@@ -4,19 +4,33 @@ A hierarchical multi-agent system that evolves algorithms through autonomous exp
 
 Give MengerFlock a codebase, a build step, and a benchmark — it will coordinate a team of AI coding agents to systematically improve the code's performance. The strategist researches the domain, decomposes the problem, and directs parallel researchers who each evolve a piece of the codebase in a tight loop: hypothesize, implement, build, evaluate, keep or revert.
 
+MengerFlock honors Karl Menger, an early pioneer of combinatorial optimization and the Traveling Salesman Problem, and "flock" reflects a coordinated group of AI research agents working together under a lead strategist to evolve better algorithms.
+
 ## Contents
 
-- [Architecture](#architecture) — orchestrator, strategist, researchers, wildcard
-- [Inputs and Outputs](#inputs-and-outputs) — what goes in, what comes out
-- [What Can MengerFlock Evolve?](#what-can-mengerflock-evolve) — supported domains
-- [User Guide](#user-guide) — install, configure, run, monitor
-- [How It Works](#how-it-works) — experiment loop, evaluation, phases, composition
-- [Design Principles](#design-principles)
-- [Tools](#tools) — CLI reference and example workflow
+- [Applicable Domains](#applicable-domains)
+- [Design](#design)
 - [Project Structure](#project-structure)
+- [User Guide](#user-guide)
 - [Citation](#citation)
 
-## Architecture
+## Applicable Domains
+
+Any codebase where you can compile, run against benchmarks, and get a number back. The requirements are simple: code + build step + measurable metric.
+
+| Domain | Examples |
+|---|---|
+| **Combinatorial Optimization** | Graph search, graph coloring, bin packing, job scheduling |
+| **Search & Solvers** | SAT solvers, constraint satisfaction, branch-and-bound, local search frameworks |
+| **Numerical Computing** | Matrix multiplication kernels, sorting algorithms, compression, signal processing |
+| **ML Training** | Neural network training loops, optimizer implementations, data augmentation |
+| **Compilers** | Optimization passes, code generation heuristics, register allocation |
+
+The domain-agnostic design means MengerFlock doesn't need to be pre-configured for any specific problem type. The strategist researches the domain autonomously via web search.
+
+## Design
+
+### Architecture
 
 ```mermaid
 graph TD
@@ -44,7 +58,7 @@ graph TD
 
 The orchestrator is a thin Python layer that launches a tmux session with one window per agent. The real work happens in the coding agents (Claude Code, Codex, etc.) — each pointed at a markdown instruction file.
 
-### Agent Types
+### Agents
 
 **Strategist** — the research PI. Analyzes the codebase, researches the domain via web search, decomposes the code into modules, assigns work, actively redirects researchers based on interim results, incrementally composes the best modules into a combined build, and writes the final report.
 
@@ -52,7 +66,7 @@ The orchestrator is a thin Python layer that launches a tmux session with one wi
 
 **Wildcard** — an optional unconstrained researcher. No assignment from the strategist, no web search, no experiment history. Works from the **original seed code** (not the evolving main branch) and reads only the high-level objectives. Writes results to the shared log, but cannot see other researchers' results or strategist directions. Forces genuine novelty by avoiding the convergence trap where all researchers gravitate toward the same ideas. The strategist reads wildcard findings and cross-pollinates useful ideas to regular researchers (one-way channel).
 
-## Inputs and Outputs
+### Inputs and Outputs
 
 **Inputs:**
 | Input | Required | Description |
@@ -68,106 +82,6 @@ The orchestrator is a thin Python layer that launches a tmux session with one wi
 | Evolved codebase | Always | `seed/` on main branch of the experiment repo |
 | Experimentation report | Always | `report/experimentation-report.md` — full log of all iterations, agents, compositions |
 | Research report | Only if evolved beats baseline | `report/research-report.md` — challenges the original paper with same evaluation methodology, three-way comparison, and ablation study |
-
-## What Can MengerFlock Evolve?
-
-Any codebase where you can compile, run against benchmarks, and get a number back. The requirements are simple: code + build step + measurable metric.
-
-| Domain | Examples |
-|---|---|
-| **Combinatorial Optimization** | Graph search, graph coloring, bin packing, job scheduling |
-| **Search & Solvers** | SAT solvers, constraint satisfaction, branch-and-bound, local search frameworks |
-| **Numerical Computing** | Matrix multiplication kernels, sorting algorithms, compression, signal processing |
-| **ML Training** | Neural network training loops, optimizer implementations, data augmentation |
-| **Compilers** | Optimization passes, code generation heuristics, register allocation |
-
-The domain-agnostic design means MengerFlock doesn't need to be pre-configured for any specific problem type. The strategist researches the domain autonomously via web search.
-
-## User Guide
-
-### Prerequisites
-
-- Python 3.11+
-- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) (or another coding agent with a CLI)
-- tmux (`brew install tmux`)
-- Git
-
-### Step 1: Install MengerFlock
-
-```bash
-git clone https://github.com/manganganath/mengerflock.git
-cd mengerflock
-pip install -e .
-```
-
-### Step 2: Prepare Your Template
-
-A template folder holds your algorithm's source code, benchmarks, and evaluation script. A starter skeleton is at `project-template/` — copy it and fill in your own files. Templates are not tracked in git (heavy data lives here).
-
-On the **first iteration**, `seed/` is a copy of `original-seed/`. On **subsequent iterations**, `seed/` contains the evolved code from the previous iteration. The config always points to the template's `original-seed/` and `datasets/holdout/` via relative paths — no data is duplicated into the experiment folder.
-
-The strategist will generate `datasets/train/` and `datasets/validation/` at runtime during Phase 1, in the same format as the holdout files.
-
-### Step 3: Edit config.yaml
-
-The template includes a sample `config.yaml` with all sections. Edit it for your project — key fields:
-
-| Section | What to set |
-|---|---|
-| `project` | `name`, `seed_path`, `original_seed_path`, `language`, optional `paper` |
-| `modules` | Initial decomposition (strategist can refine) |
-| `build` | `command` (e.g., `make -j4` or `true` for Python) and `binary` |
-| `benchmarks` | Glob paths to holdout instances (small/medium/large) |
-| `evaluation` | Metric name, runs per instance, random seeds |
-| `agents` | Tool CLI, model flags per role |
-| `stopping_conditions` | Max iterations, hours, stagnation window |
-
-### Step 4: Run and Monitor
-
-```bash
-# Create experiment from template
-mengerflock new projects/my-algo my-algo-experiment-1
-cd my-algo-experiment-1
-
-# Launch
-mengerflock run
-```
-
-The orchestrator prints tmux and monitoring instructions at each phase. Key commands:
-
-| Action | Command |
-|---|---|
-| Interact with agents | `tmux attach -t mengerflock` |
-| Switch agent windows | `Ctrl+B` then `n`/`p` or `1`/`2`/`3` |
-| Detach (agents keep running) | `Ctrl+B` then `d` |
-| Quick status | `mengerflock status` |
-| Graceful stop | `mengerflock stop` |
-| Reset experiment | `mengerflock clean` |
-
-The strategist writes `report/experimentation-report.md` covering what was tried, what worked, and benchmark comparisons. If the evolved algorithm beats the baseline on holdout, it also writes `report/research-report.md` — a near-publication-quality paper with full reproduction details.
-
-### Model Selection
-
-Different agent roles have different reasoning requirements. Use the strongest available model where judgment matters most, and faster/cheaper models for mechanical work.
-
-| Role | Recommended | Why |
-|---|---|---|
-| **Strategist** | Most capable (e.g., opus) | Domain research, composition reasoning, cross-pollination decisions, report writing. The strategist's judgment drives the entire experiment. |
-| **Researchers** | Fast and capable (e.g., sonnet) | Focused edit-test loops on assigned modules. Speed matters — more experiments per hour means more coverage. |
-| **Wildcard** | Most capable (e.g., opus) | No guidance from strategist, no domain context, no web search. Must reason about the code from first principles. Stronger models produce more creative hypotheses. |
-
-If budget is limited, prioritize the strategist — a weak strategist with strong researchers wastes the researchers' output on poor composition decisions. A strong strategist with weaker researchers can still extract value through good direction-setting.
-
-### Tips
-
-- **Start small.** Use 2-3 researchers and small benchmarks first. Scale up once you see the loop working.
-- **Let it run overnight.** Each researcher can do ~10-12 experiments per hour. An overnight run gives you 80-100 experiments per researcher.
-- **Check `state/results.tsv`** for a quick view of all experiments across all researchers.
-- **The strategist is the bottleneck.** It needs to compose, evaluate, and reassign. If researchers are idle, check the strategist window.
-- **Seed code matters.** Start from the best available implementation. The agents evolve from there — they don't invent from scratch.
-- **Add the wildcard** for runs longer than an hour. Its unconstrained exploration is slower but can find ideas the directed researchers miss.
-
-## How It Works
 
 ### The Experiment Loop
 
@@ -269,11 +183,6 @@ stateDiagram-v2
 
 **Phase 3 → Done (or Phase 2 re-entry):** The strategist runs holdout evaluation, writes reports, and verifies all artifacts. If the evolved algorithm beats the baseline, it produces a research paper and signals `state/phase3_complete`. If not, it asks the user whether to re-enter Phase 2. The user must approve re-entry — it is not automatic. Maximum re-entries is configurable (`stopping_conditions.max_reentries`, default 2).
 
-**Required outputs verified before completion:**
-- Evolved codebase on main branch (always)
-- `report/experimentation-report.md` (always)
-- `report/research-report.md` (only if evolved beats baseline)
-
 ### Composition Strategy
 
 The strategist composes modules **incrementally, best-first**:
@@ -315,7 +224,7 @@ The strategist doesn't just observe — it actively steers researchers:
 
 **Fallback: Cross-Pollination** — when module composition fails due to tight coupling, researchers fork the full codebase and evolve holistically. Last resort only.
 
-## Design Principles
+### Design Principles
 
 - **Agents are coding tool sessions**, not custom LLM infrastructure. MengerFlock doesn't make API calls — it launches Claude Code / Codex sessions pointed at instruction files.
 - **Git is the state manager.** Worktrees for isolation, branches for versioning, tags for milestones.
@@ -324,41 +233,6 @@ The strategist doesn't just observe — it actively steers researchers:
 - **Train/validation/holdout split.** Researchers never see the holdout benchmark. Results are credible.
 - **Cost-aware evaluation.** Changes that slow down trials are penalized, not just changes that worsen quality.
 - **The wildcard breaks convergence.** One agent with no guidance, no history, no web search — forced to think from first principles.
-
-## Tools
-
-| Tool | Purpose | Usage |
-|---|---|---|
-| `mengerflock new` | Create experiment from template | `mengerflock new <template> <name> [--seed-from <path>]` |
-| `mengerflock run` | Launch all agents via tmux | `mengerflock run [config.yaml]` (defaults to `config.yaml`) |
-| `mengerflock status` | Check progress | `mengerflock status` |
-| `mengerflock stop` | Graceful shutdown | `mengerflock stop` |
-| `mengerflock clean` | Reset experiment state | `mengerflock clean` (or `--force` to skip confirmation) |
-
-**Example workflow:**
-```bash
-# 1. Create experiment from template (copies seed, eval.sh, prompts, config)
-mengerflock new projects/my-algo my-algo-experiment-1
-cd my-algo-experiment-1
-
-# 2. Review and edit config.yaml, then launch
-mengerflock run
-
-# 3. Monitor progress (in a separate terminal)
-mengerflock status
-
-# 4. Graceful stop — strategist enters Phase 3, writes reports
-mengerflock stop
-
-# 5. Reset if you want to rerun with different settings
-mengerflock clean
-
-# 6. Next iteration — start from evolved code of experiment-1
-cd ..
-mengerflock new projects/my-algo my-algo-experiment-2 --seed-from my-algo-experiment-1
-```
-
-A starter template is included at `project-template/` showing the expected folder structure. Copy it and fill in your own code, benchmarks, and evaluation script.
 
 ## Project Structure
 
@@ -386,6 +260,92 @@ mengerflock/
 └── projects/                    # your experiment templates and results (gitignored)
 ```
 
+## User Guide
+
+### Prerequisites
+
+- Python 3.11+
+- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) (or another coding agent with a CLI)
+- tmux (`brew install tmux`)
+- Git
+
+### Install
+
+```bash
+git clone https://github.com/manganganath/mengerflock.git
+cd mengerflock
+pip install -e .
+```
+
+### Prepare Your Template
+
+A template folder holds your algorithm's source code, benchmarks, and evaluation script. A starter skeleton is at `project-template/` — copy it and fill in your own files. Templates are not tracked in git (heavy data lives here).
+
+The template includes a sample `config.yaml` with all sections. Key fields:
+
+| Section | What to set |
+|---|---|
+| `project` | `name`, `seed_path`, `original_seed_path`, `language`, optional `paper` |
+| `modules` | Initial decomposition (strategist can refine) |
+| `build` | `command` (e.g., `make -j4` or `true` for Python) and `binary` |
+| `benchmarks` | Glob paths to holdout instances (small/medium/large) |
+| `evaluation` | Metric name, runs per instance, random seeds |
+| `agents` | Tool CLI, model flags per role |
+| `stopping_conditions` | Max iterations, hours, stagnation window |
+
+### CLI
+
+| Command | Purpose | Usage |
+|---|---|---|
+| `mengerflock new` | Create experiment from template | `mengerflock new <template> <name> [--seed-from <path>]` |
+| `mengerflock run` | Launch all agents via tmux | `mengerflock run [config.yaml]` (defaults to `config.yaml`) |
+| `mengerflock status` | Check progress | `mengerflock status` |
+| `mengerflock stop` | Graceful shutdown | `mengerflock stop` |
+| `mengerflock clean` | Reset experiment state | `mengerflock clean` (or `--force` to skip confirmation) |
+
+### Example Workflow
+
+```bash
+# 1. Create experiment from template (copies seed, eval.sh, prompts, config)
+mengerflock new projects/my-algo my-algo-experiment-1
+cd my-algo-experiment-1
+
+# 2. Review and edit config.yaml, then launch
+mengerflock run
+
+# 3. Monitor progress (in a separate terminal)
+mengerflock status
+
+# 4. Graceful stop — strategist enters Phase 3, writes reports
+mengerflock stop
+
+# 5. Reset if you want to rerun with different settings
+mengerflock clean
+
+# 6. Next iteration — start from evolved code of experiment-1
+cd ..
+mengerflock new projects/my-algo my-algo-experiment-2 --seed-from my-algo-experiment-1
+```
+
+### Model Selection
+
+| Role | Recommended | Why |
+|---|---|---|
+| **Strategist** | Most capable (e.g., opus) | Domain research, composition reasoning, cross-pollination decisions, report writing. The strategist's judgment drives the entire experiment. |
+| **Researchers** | Fast and capable (e.g., sonnet) | Focused edit-test loops on assigned modules. Speed matters — more experiments per hour means more coverage. |
+| **Wildcard** | Most capable (e.g., opus) | No guidance from strategist, no domain context, no web search. Must reason about the code from first principles. Stronger models produce more creative hypotheses. |
+
+If budget is limited, prioritize the strategist — a weak strategist with strong researchers wastes the researchers' output on poor composition decisions. A strong strategist with weaker researchers can still extract value through good direction-setting.
+
+### Tips
+
+- **Start small.** Use 2-3 researchers and small benchmarks first. Scale up once you see the loop working.
+- **Let it run overnight.** Each researcher can do ~10-12 experiments per hour. An overnight run gives you 80-100 experiments per researcher.
+- **Check `state/results.tsv`** for a quick view of all experiments across all researchers.
+- **The strategist is the bottleneck.** It needs to compose, evaluate, and reassign. If researchers are idle, check the strategist window.
+- **Seed code matters.** Start from the best available implementation. The agents evolve from there — they don't invent from scratch.
+- **Add the wildcard** for runs longer than an hour. Its unconstrained exploration is slower but can find ideas the directed researchers miss.
+
 ## Citation
 
 If you use MengerFlock in your research, please cite it:
@@ -399,7 +359,3 @@ If you use MengerFlock in your research, please cite it:
   version = {0.2.0}
 }
 ```
-
----
-
-MengerFlock honors Karl Menger, an early pioneer of combinatorial optimization and the Traveling Salesman Problem, and "flock" reflects a coordinated group of AI research agents working together under a lead strategist to evolve better algorithms.
