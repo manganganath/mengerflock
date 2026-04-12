@@ -145,80 +145,95 @@ def new(template: str, experiment_name: str, seed_from: str | None) -> None:
 
     experiment_path.mkdir(parents=True)
 
-    # Copy seed (from previous experiment or from template)
-    if seed_from:
-        seed_src = Path(seed_from).resolve() / "seed"
-        if not seed_src.exists():
-            click.echo(f"Error: {seed_src} does not exist.")
-            return
-        shutil.copytree(seed_src, experiment_path / "seed")
-        click.echo(f"Seed: copied evolved seed from {seed_from}")
-    else:
-        seed_src = template_path / "seed"
-        if seed_src.exists():
+    try:
+        # Copy seed (from previous experiment or from template)
+        if seed_from:
+            seed_src = Path(seed_from).resolve() / "seed"
+            if not seed_src.exists():
+                click.echo(f"Error: {seed_src} does not exist.")
+                shutil.rmtree(experiment_path)
+                return
             shutil.copytree(seed_src, experiment_path / "seed")
-        elif (template_path / "original-seed").exists():
-            shutil.copytree(template_path / "original-seed", experiment_path / "seed")
-        click.echo("Seed: copied from template")
+            click.echo(f"Seed: copied evolved seed from {seed_from}")
+        else:
+            seed_src = template_path / "seed"
+            if seed_src.exists():
+                shutil.copytree(seed_src, experiment_path / "seed")
+                click.echo("Seed: copied from template (seed/)")
+            elif (template_path / "original-seed").exists():
+                shutil.copytree(template_path / "original-seed", experiment_path / "seed")
+                click.echo("Seed: copied from template (original-seed/ — no seed/ found)")
+            else:
+                click.echo("Warning: no seed/ or original-seed/ found in template — seed not copied")
 
-    # Copy eval.sh
-    eval_src = template_path / "eval.sh"
-    if eval_src.exists():
-        shutil.copy2(eval_src, experiment_path / "eval.sh")
+        # Copy eval.sh
+        eval_src = template_path / "eval.sh"
+        if eval_src.exists():
+            shutil.copy2(eval_src, experiment_path / "eval.sh")
+        else:
+            click.echo(f"Warning: eval.sh not found in template ({template_path}) — you must add it manually")
 
-    # Copy prompts from the mengerflock repo (find them relative to this file)
-    prompts_src = Path(__file__).resolve().parent.parent.parent / "prompts"
-    if prompts_src.exists():
-        shutil.copytree(prompts_src, experiment_path / "prompts")
+        # Copy prompts from the mengerflock repo (find them relative to this file)
+        prompts_src = Path(__file__).resolve().parent.parent.parent / "prompts"
+        if prompts_src.exists():
+            shutil.copytree(prompts_src, experiment_path / "prompts")
+        else:
+            click.echo(f"Warning: prompts directory not found at {prompts_src} — you must copy prompts manually")
 
-    # Read template config as base if it exists
-    template_config = template_path / "config.yaml"
-    if template_config.exists():
-        config_content = template_config.read_text()
-        (experiment_path / "config.yaml").write_text(config_content)
-        click.echo("Config: copied from template (review and update paths)")
+        # Read template config as base if it exists
+        template_config = template_path / "config.yaml"
+        if template_config.exists():
+            config_content = template_config.read_text()
+            (experiment_path / "config.yaml").write_text(config_content)
+            click.echo("Config: copied from template (review and update paths)")
 
-    # Create run.py
-    mengerflock_src = Path(__file__).resolve().parent.parent.parent / "src"
-    run_py_lines = [
-        "#!/usr/bin/env python3",
-        '"""Launch MengerFlock on this experiment."""',
-        "import sys",
-        f'sys.path.insert(0, "{mengerflock_src}")',
-        "from mengerflock.config import load_config",
-        "from mengerflock.orchestrator import Orchestrator, init_project",
-        "from pathlib import Path",
-        'config = load_config("config.yaml")',
-        "project_dir = Path.cwd()",
-        'if not (project_dir / "state").exists():',
-        "    init_project(project_dir, config)",
-        "orchestrator = Orchestrator(project_dir, config)",
-        'print(f"Starting MengerFlock: {config.project.name}")',
-        "print(f\"  Wildcard: {'yes' if config.agents.wildcard else 'no'}\")",
-        "orchestrator.run()",
-        "",
-    ]
-    (experiment_path / "run.py").write_text("\n".join(run_py_lines))
+        # Create run.py
+        mengerflock_src = Path(__file__).resolve().parent.parent.parent / "src"
+        run_py_lines = [
+            "#!/usr/bin/env python3",
+            '"""Launch MengerFlock on this experiment."""',
+            "import sys",
+            f'sys.path.insert(0, "{mengerflock_src}")',
+            "from mengerflock.config import load_config",
+            "from mengerflock.orchestrator import Orchestrator, init_project",
+            "from pathlib import Path",
+            'config = load_config("config.yaml")',
+            "project_dir = Path.cwd()",
+            'if not (project_dir / "state").exists():',
+            "    init_project(project_dir, config)",
+            "orchestrator = Orchestrator(project_dir, config)",
+            'print(f"Starting MengerFlock: {config.project.name}")',
+            "print(f\"  Wildcard: {'yes' if config.agents.wildcard else 'no'}\")",
+            "orchestrator.run()",
+            "",
+        ]
+        (experiment_path / "run.py").write_text("\n".join(run_py_lines))
 
-    # Create .gitignore
-    (experiment_path / ".gitignore").write_text("datasets/\n.worktrees/\n")
+        # Create .gitignore
+        (experiment_path / ".gitignore").write_text("datasets/\n.worktrees/\n")
 
-    # Init git repo
-    subprocess.run(["git", "init"], cwd=experiment_path, capture_output=True)
-    subprocess.run(["git", "add", "-A"], cwd=experiment_path, capture_output=True)
-    subprocess.run(
-        ["git", "commit", "-m", f"Initial seed for {experiment_name}"],
-        cwd=experiment_path,
-        capture_output=True,
-    )
-    subprocess.run(["git", "tag", "baseline"], cwd=experiment_path, capture_output=True)
+        # Init git repo
+        subprocess.run(["git", "init"], cwd=experiment_path, capture_output=True)
+        subprocess.run(["git", "add", "-A"], cwd=experiment_path, capture_output=True)
+        subprocess.run(
+            ["git", "commit", "-m", f"Initial seed for {experiment_name}"],
+            cwd=experiment_path,
+            capture_output=True,
+        )
+        subprocess.run(["git", "tag", "baseline"], cwd=experiment_path, capture_output=True)
+
+    except Exception as e:
+        click.echo(f"Error: {e}")
+        click.echo(f"Cleaning up partial directory: {experiment_path}")
+        shutil.rmtree(experiment_path, ignore_errors=True)
+        return
 
     click.echo(f"\nExperiment created: {experiment_path}")
     click.echo("  Git initialized with 'baseline' tag")
     click.echo("  Review config.yaml and update paths before running")
     click.echo("\nTo run:")
     click.echo(f"  cd {experiment_path}")
-    click.echo(f"  python3 run.py {mengerflock_src}")
+    click.echo(f"  python3 run.py")
 
 
 @main.command()

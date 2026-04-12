@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 """
-Synthetic TSP instance generator — produces TSPLIB-format files for MengerFlock.
+TSP-specific synthetic instance generator — produces TSPLIB-format files.
+
+This is an example utility for TSP experiments, NOT part of the generic
+MengerFlock framework. Other domains should implement their own instance
+generators in the appropriate format.
 
 Usage examples:
     python generate_instances.py --output datasets/train \
         --count 10 --sizes small,medium,large \
         --distributions uniform,clustered,grid,mixed
-
-    python generate_instances.py --output datasets/validation \
-        --count 5 --sizes small,medium,large \
-        --distributions uniform,clustered
 """
 
 import argparse
