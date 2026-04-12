@@ -243,9 +243,12 @@ When shutdown is requested, follow this EXACT sequence:
    - The report must be near-publication quality. Follow the guidelines below.
 
 6. **IF evolved does NOT beat INITIAL SEED** (this iteration made no progress):
-   - Ask the user: "This iteration did not improve upon the initial seed. Would you like to return to Phase 2 for more iterations?"
-   - If user says yes: signal Phase 2 re-entry (see below)
-   - If user says no: proceed to finalize
+   - **MANDATORY GATE — DO NOT SKIP THIS STEP.**
+   - You MUST ask the user: "This iteration did not improve upon the initial seed. Would you like to return to Phase 2 for more iterations?"
+   - **WAIT for the user to respond.** Do NOT proceed until you receive an answer.
+   - If user says yes: signal Phase 2 re-entry by writing `touch state/reenter_phase2` and STOP. Do NOT write `phase3_complete`.
+   - If user says no: proceed to finalize and write `phase3_complete`.
+   - **You MUST NOT write `state/phase3_complete` without first asking the user and receiving a response.**
 
    Note: Even if this iteration made no progress, the research report is still produced if the evolved code beats the original seed (improvements may have come from prior iterations).
 
@@ -331,7 +334,9 @@ The research report must be written so that a researcher with domain knowledge c
    - `report/research-report.md` (required only if evolved beats baseline)
    If any required artifact is missing, create it before signaling.
 
-8. **Signal experiment complete**:
+8. **Signal experiment complete** (only after user approval or research report produced):
+   - If evolved did NOT beat initial seed: you MUST have asked the user in step 6 and received "no" to re-entry before reaching this step.
+   - If evolved beat the baseline: research report must exist at `report/research-report.md`.
    ```bash
    touch state/phase3_complete
    ```
