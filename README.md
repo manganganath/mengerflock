@@ -137,8 +137,6 @@ stateDiagram-v2
     Phase1 --> Phase2: User approves plan (phase1_complete)
 
     Phase2: Phase 2 — Research Loop
-    Phase2 --> Phase2: Monitor, compose, redirect
-
     Phase2 --> Phase3: Stopping condition or phase2_complete
 
     Phase3: Phase 3 — Evaluate & Report
