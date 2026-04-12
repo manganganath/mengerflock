@@ -51,7 +51,7 @@ All shared state is in the `state/` directory at the project root (the directory
    - Potential improvement areas
    - What has already been modified from `original-seed/` (if prior iterations exist)
 
-5. **Present research plan to user (MANDATORY — do NOT skip this)**:
+6. **Present research plan to user (MANDATORY — do NOT skip this)**:
    Present the following to the user and WAIT for approval:
 
    - **Domain research summary**: What you learned about this algorithm/domain
@@ -65,9 +65,9 @@ All shared state is in the `state/` directory at the project root (the directory
 
    Do NOT proceed until the user explicitly approves. There is no timeout on this gate.
 
-6. **Write approved objectives**: After user approval, write the agreed objectives to `state/objectives.md`. This file is readable by ALL agents including the wildcard.
+7. **Write approved objectives**: After user approval, write the agreed objectives to `state/objectives.md`. This file is readable by ALL agents including the wildcard.
 
-7. **Run quick baselines** (Phase 1 baselines are for planning, not final evaluation):
+8. **Run quick baselines** (Phase 1 baselines are for planning, not final evaluation):
    - **Use 1 seed only** (seed 42) on a representative subset of holdout instances (2-3 small, 2-3 medium, 2-3 large).
    - **Time limit per instance: 2 minutes.** If an instance doesn't complete in 2 minutes, skip it and log "TIMEOUT" in the baseline. These will be evaluated properly in Phase 3 with full time budgets.
    - **Original seed baseline**: Build from `original-seed/` and run quick baseline. Store in `state/baseline_holdout.tsv` with researcher_id="original-baseline".
@@ -76,7 +76,7 @@ All shared state is in the `state/` directory at the project root (the directory
 
    **Full baseline evaluation (all instances, all seeds) happens in Phase 3, not here.** Phase 1 baselines are just for understanding the starting point and planning researcher assignments. Instances that timed out in Phase 1 must be evaluated in Phase 3.
 
-8. **Create initial assignments**: Write `state/assignments/r<id>.yaml` for each researcher with:
+9. **Create initial assignments**: Write `state/assignments/r<id>.yaml` for each researcher with:
    ```yaml
    module_name: <name>
    files: [<list of files>]
@@ -84,14 +84,6 @@ All shared state is in the `state/` directory at the project root (the directory
    constraints: [<what not to change>]
    context: <your analysis of this module and what might work>
    ```
-
-9. **Generate codebase summary for wildcard**: Create a file `state/codebase_summary.md` containing:
-   - List of all source files with a one-line description of each
-   - Key data structures and where they're defined
-   - The main entry point and control flow
-   - Which files are most likely to yield improvements (based on your analysis)
-
-   This helps the wildcard start faster — instead of reading 100+ files, it reads the summary first and knows where to focus.
 
 10. **Set up training and validation datasets**: Check `config.yaml` for a `training` section with paths to existing train/validation data:
    ```yaml
@@ -104,9 +96,17 @@ All shared state is in the `state/` directory at the project root (the directory
 
    Rule: train and validation files MUST be in the same format as holdout so the binary can consume them without modification. Researchers MUST use training data for their experiments, NOT holdout. Holdout is only for Phase 3 evaluation.
 
-11. **Signal Phase 1 complete**: Run `touch state/phase1_complete`. This tells the orchestrator to launch researchers. Do NOT create this file before the user has approved.
+11. **Generate codebase summary for wildcard**: Create a file `state/codebase_summary.md` containing:
+   - List of all source files with a one-line description of each
+   - Key data structures and where they're defined
+   - The main entry point and control flow
+   - Which files are most likely to yield improvements (based on your analysis)
 
-12. **After completing initialization, do NOT exit.** Proceed immediately to Phase 2.
+   This helps the wildcard start faster — instead of reading 100+ files, it reads the summary first and knows where to focus.
+
+12. **Signal Phase 1 complete**: Run `touch state/phase1_complete`. This tells the orchestrator to launch researchers. Do NOT create this file before the user has approved.
+
+13. **After completing initialization, do NOT exit.** Proceed immediately to Phase 2.
 
 ## Research Loop (Phase 2)
 

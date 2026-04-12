@@ -149,6 +149,10 @@ benchmarks:
   medium: ["../my-project/datasets/holdout/med_*"]
   large: ["../my-project/datasets/holdout/large_*"]
 
+training:
+  train: "../my-project/datasets/train/"       # optional: reuse training data from template
+  validation: "../my-project/datasets/validation/"
+
 evaluation:
   metric: "gap_to_optimal"
   runs_per_instance: 5
@@ -445,6 +449,7 @@ The strategist doesn't just observe — it actively steers researchers:
 
 | Tool | Purpose | Usage |
 |---|---|---|
+| `mengerflock new` | Create experiment from template | `mengerflock new <template> <name> [--seed-from <path>]` |
 | `mengerflock init` | Initialize project | `mengerflock init --config config.yaml` |
 | `mengerflock run` | Launch all agents via tmux | `mengerflock run config.yaml` |
 | `mengerflock status` | Check progress | `mengerflock status` |
