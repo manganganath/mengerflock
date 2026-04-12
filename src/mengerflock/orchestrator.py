@@ -248,7 +248,6 @@ class Orchestrator:
             )
             if result.returncode != 0 or "strategist" not in result.stdout:
                 print("WARNING: Strategist exited before completing Phase 3.")
-                print("Run 'mengerflock report' to generate reports from experiment data.")
                 return "complete"  # don't block forever
 
             time.sleep(poll_interval)

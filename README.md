@@ -179,16 +179,13 @@ stopping_conditions:
   # max_reentries: 2               # max Phase 2 re-entries after failed Phase 3 (default: 2)
 ```
 
-### Step 4: Initialize and Run
+### Step 4: Run
 
 ```bash
 cd my-project
 
-# Initialize (creates state directory, git branches)
-mengerflock init --config config.yaml
-
-# Run (launches tmux session with all agents)
-mengerflock run config.yaml
+# Launch (auto-initializes state directory and git branches on first run)
+mengerflock run
 ```
 
 ### Step 5: Monitor
@@ -254,9 +251,6 @@ mengerflock status
 ```bash
 # Graceful stop — finishes current iterations, strategist writes report
 mengerflock stop
-
-# Or generate report from a completed/stopped run
-mengerflock report
 ```
 
 The strategist writes `report/experimentation-report.md` covering what was tried, what worked, and benchmark comparisons. If the evolved algorithm beats the baseline on holdout, it also writes `report/research-report.md` — a near-publication-quality paper with full reproduction details.
@@ -450,23 +444,35 @@ The strategist doesn't just observe — it actively steers researchers:
 | Tool | Purpose | Usage |
 |---|---|---|
 | `mengerflock new` | Create experiment from template | `mengerflock new <template> <name> [--seed-from <path>]` |
-| `mengerflock init` | Initialize project | `mengerflock init --config config.yaml` |
-| `mengerflock run` | Launch all agents via tmux | `mengerflock run config.yaml` |
+| `mengerflock run` | Launch all agents via tmux | `mengerflock run [config.yaml]` (defaults to `config.yaml`) |
 | `mengerflock status` | Check progress | `mengerflock status` |
 | `mengerflock stop` | Graceful shutdown | `mengerflock stop` |
-| `mengerflock report` | Generate final report | `mengerflock report` |
 | `mengerflock clean` | Reset experiment state | `mengerflock clean` (or `--force` to skip confirmation) |
 
-**Example — creating an experiment from the included template:**
+**Example workflow:**
 ```bash
-# First iteration (seed = original seed)
-mengerflock new project-template my-algo-experiment-1
+# 1. Create experiment from template (copies seed, eval.sh, prompts, config)
+mengerflock new projects/my-algo my-algo-experiment-1
+cd my-algo-experiment-1
 
-# Second iteration (seed = evolved code from experiment-1)
-mengerflock new project-template my-algo-experiment-2 --seed-from my-algo-experiment-1/seed
+# 2. Review and edit config.yaml, then launch
+mengerflock run
+
+# 3. Monitor progress (in a separate terminal)
+mengerflock status
+
+# 4. Graceful stop — strategist enters Phase 3, writes reports
+mengerflock stop
+
+# 5. Reset if you want to rerun with different settings
+mengerflock clean
+
+# 6. Next iteration — start from evolved code of experiment-1
+cd ..
+mengerflock new projects/my-algo my-algo-experiment-2 --seed-from my-algo-experiment-1
 ```
 
-An example template is included at `project-template/` showing the expected folder structure. Copy it and fill in your own code, benchmarks, and evaluation script.
+A starter template is included at `project-template/` showing the expected folder structure. Copy it and fill in your own code, benchmarks, and evaluation script.
 
 ## Project Structure
 

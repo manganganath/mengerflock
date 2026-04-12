@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
 from pathlib import Path
 
 import click
@@ -9,9 +8,7 @@ from mengerflock.config import load_config
 from mengerflock.orchestrator import Orchestrator, init_project
 from mengerflock.state import (
     is_shutdown_requested,
-    read_baseline_holdout,
     read_results,
-    read_strategist_log,
     write_shutdown_flag,
 )
 
@@ -23,25 +20,9 @@ def main() -> None:
 
 
 @main.command()
-@click.option("--seed", type=click.Path(exists=True), help="Path to seed codebase")
-@click.option("--config", "config_path", required=True, type=click.Path(exists=True))
-def init(seed: str | None, config_path: str) -> None:
-    """Initialize a new MengerFlock project."""
-    config = load_config(config_path)
-    project_dir = Path.cwd()
-
-    if seed:
-        config.project.seed_path = seed
-
-    init_project(project_dir, config)
-    click.echo(f"Project initialized: {config.project.name}")
-    click.echo(f"State directory: {project_dir / 'state'}")
-
-
-@main.command()
-@click.argument("config_path", type=click.Path(exists=True))
+@click.argument("config_path", type=click.Path(exists=True), default="config.yaml")
 def run(config_path: str) -> None:
-    """Run the MengerFlock experiment."""
+    """Run the MengerFlock experiment (defaults to config.yaml in current directory)."""
     config = load_config(config_path)
     project_dir = Path.cwd()
 
@@ -58,7 +39,7 @@ def status() -> None:
     """Show current experiment progress."""
     state_dir = Path.cwd() / "state"
     if not state_dir.exists():
-        click.echo("No active project. Run 'mengerflock init' first.")
+        click.echo("No active project. Run 'mengerflock run' first.")
         return
 
     results = read_results(state_dir)
@@ -187,28 +168,6 @@ def new(template: str, experiment_name: str, seed_from: str | None) -> None:
             (experiment_path / "config.yaml").write_text(config_content)
             click.echo("Config: copied from template (review and update paths)")
 
-        # Create run.py
-        mengerflock_src = Path(__file__).resolve().parent.parent.parent / "src"
-        run_py_lines = [
-            "#!/usr/bin/env python3",
-            '"""Launch MengerFlock on this experiment."""',
-            "import sys",
-            f'sys.path.insert(0, "{mengerflock_src}")',
-            "from mengerflock.config import load_config",
-            "from mengerflock.orchestrator import Orchestrator, init_project",
-            "from pathlib import Path",
-            'config = load_config("config.yaml")',
-            "project_dir = Path.cwd()",
-            'if not (project_dir / "state").exists():',
-            "    init_project(project_dir, config)",
-            "orchestrator = Orchestrator(project_dir, config)",
-            'print(f"Starting MengerFlock: {config.project.name}")',
-            "print(f\"  Wildcard: {'yes' if config.agents.wildcard else 'no'}\")",
-            "orchestrator.run()",
-            "",
-        ]
-        (experiment_path / "run.py").write_text("\n".join(run_py_lines))
-
         # Create .gitignore
         (experiment_path / ".gitignore").write_text("datasets/\n.worktrees/\n")
 
@@ -233,66 +192,6 @@ def new(template: str, experiment_name: str, seed_from: str | None) -> None:
     click.echo("  Review config.yaml and update paths before running")
     click.echo("\nTo run:")
     click.echo(f"  cd {experiment_path}")
-    click.echo(f"  python3 run.py")
+    click.echo(f"  mengerflock run")
 
 
-@main.command()
-def report() -> None:
-    """Generate report from experiment results."""
-    state_dir = Path.cwd() / "state"
-    if not state_dir.exists():
-        click.echo("No active project.")
-        return
-
-    report_dir = Path.cwd() / "report"
-    report_dir.mkdir(exist_ok=True)
-
-    results = read_results(state_dir)
-    log = read_strategist_log(state_dir)
-
-    baseline = read_baseline_holdout(state_dir)
-    baseline_note = ""
-    if not baseline:
-        baseline_note = "\n> **Note:** Baseline holdout results were not captured.\n"
-
-    keeps = [r for r in results if r["status"] == "keep"]
-    discards = [r for r in results if r["status"] == "discard"]
-    crashes = [r for r in results if r["status"] == "crash"]
-
-    report_content = f"""# MengerFlock Experimentation Report
-
-**Generated:** {datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")}
-{baseline_note}
-## Summary
-
-- Total experiments: {len(results)}
-- Keeps: {len(keeps)}
-- Discards: {len(discards)}
-- Crashes: {len(crashes)}
-- Strategist actions: {len(log)}
-
-## Experiment Log
-
-| Timestamp | Researcher | Module | Status | Hypothesis |
-|---|---|---|---|---|
-"""
-    for r in results:
-        report_content += f"| {r.get('timestamp', '')} | {r.get('researcher', '')} | {r.get('module', '')} | {r.get('status', '')} | {r.get('hypothesis', '')} |\n"
-
-    report_content += "\n## Strategist Log\n\n"
-    for entry in log:
-        report_content += f"- **{entry.get('timestamp', '')}** {entry.get('action', '')}: {entry.get('details', '')}\n"
-
-    report_path = report_dir / "experimentation-report.md"
-    report_path.write_text(report_content)
-    click.echo(f"Experimentation report: {report_path}")
-
-    if baseline and keeps:
-        best = min(keeps, key=lambda r: float(r["metric_avg"]))
-        baseline_avg = float(baseline[0]["metric_avg"])
-        if float(best["metric_avg"]) < baseline_avg:
-            click.echo("Evolved algorithm beats baseline — research paper should be produced by strategist.")
-        else:
-            click.echo("Evolved algorithm did not beat baseline — no research paper.")
-    else:
-        click.echo("Insufficient data for holdout comparison.")
