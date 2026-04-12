@@ -101,7 +101,7 @@ class Orchestrator:
         self.project_dir = project_dir.resolve()
         self.config = config
         self.state_dir = project_dir / "state"
-        self.start_time = time.time()
+        self.start_time = None  # set when Phase 2 begins
         self._shutdown = False
 
     def _ensure_clean_tmux_session(self) -> None:
@@ -396,6 +396,8 @@ class Orchestrator:
 
         # === Phase 2: Researchers evolve the codebase ===
         while True:
+            if self.start_time is None:
+                self.start_time = time.time()
             print(f"=== Phase 2: Research loop (attempt {reentry_count + 1}) ===")
             print("  Researchers are evolving the codebase autonomously.")
             dashboard_path = Path(__file__).resolve().parent / "dashboard.sh"
