@@ -4,6 +4,18 @@ A hierarchical multi-agent system that evolves algorithms through autonomous exp
 
 Give MengerFlock a codebase, a build step, and a benchmark — it will coordinate a team of AI coding agents to systematically improve the code's performance. The strategist researches the domain, decomposes the problem, and directs parallel researchers who each evolve a piece of the codebase in a tight loop: hypothesize, implement, build, evaluate, keep or revert.
 
+## Contents
+
+- [Architecture](#architecture) — orchestrator, strategist, researchers, wildcard
+- [Inputs and Outputs](#inputs-and-outputs) — what goes in, what comes out
+- [What Can MengerFlock Evolve?](#what-can-mengerflock-evolve) — supported domains
+- [User Guide](#user-guide) — install, configure, run, monitor
+- [How It Works](#how-it-works) — experiment loop, evaluation, phases, composition
+- [Design Principles](#design-principles)
+- [Tools](#tools) — CLI reference and example workflow
+- [Project Structure](#project-structure)
+- [Citation](#citation)
+
 ## Architecture
 
 ```mermaid
@@ -88,183 +100,51 @@ cd mengerflock
 pip install -e .
 ```
 
-### Step 2: Prepare Your Project
+### Step 2: Prepare Your Template
 
-MengerFlock uses two folder types:
-
-**Template folder** (e.g., `my-project/`) — contains heavy, read-only data. Not tracked in git.
-```
-my-project/
-├── original-seed/      # unmodified algorithm as published (never touched)
-├── datasets/
-│   ├── holdout/        # established benchmark instances
-│   └── paper/          # additional instances from the reference paper (downloaded by strategist)
-├── eval.sh             # evaluation script
-└── paper.pdf           # optional: reference paper describing the original algorithm
-```
-
-All benchmark data lives in the template — holdout instances provided by the user, plus any additional instances the strategist downloads from the reference paper during Phase 3 evaluation.
-
-**Experiment folder** (e.g., `my-project-experiment-1/`) — contains only what the experiment produces. Tracked in git.
-```
-my-project-experiment-1/
-├── config.yaml         # references template paths (../my-project/original-seed/, etc.)
-├── seed/               # starting point → becomes the evolved code via compositions
-├── eval.sh             # evaluation script (copied from template)
-├── prompts/            # agent instructions
-├── state/              # experiment logs, assignments, baselines (created at runtime)
-└── report/             # experimentation report + research report (created in Phase 3)
-```
+A template folder holds your algorithm's source code, benchmarks, and evaluation script. A starter skeleton is at `project-template/` — copy it and fill in your own files. Templates are not tracked in git (heavy data lives here).
 
 On the **first iteration**, `seed/` is a copy of `original-seed/`. On **subsequent iterations**, `seed/` contains the evolved code from the previous iteration. The config always points to the template's `original-seed/` and `datasets/holdout/` via relative paths — no data is duplicated into the experiment folder.
 
 The strategist will generate `datasets/train/` and `datasets/validation/` at runtime during Phase 1, in the same format as the holdout files.
 
-### Step 3: Write config.yaml
+### Step 3: Edit config.yaml
 
-```yaml
-project:
-  name: "my-algorithm"
-  seed_path: "./seed/"                    # starting point for this iteration (in experiment folder)
-  original_seed_path: "../my-project/original-seed/"  # unmodified algorithm in template folder
-  language: "c"
-  # paper: "../my-project/paper.pdf"       # optional: paper describing the original-seed algorithm
-                                            # must correspond to the code in original_seed_path
-                                            # research report will challenge this paper directly
+The template includes a sample `config.yaml` with all sections. Edit it for your project — key fields:
 
-modules:                    # the strategist can refine these after analyzing the code
-  - name: "core_logic"
-    files: ["src/core.c"]
-    description: "Main algorithm logic"
-  - name: "heuristics"
-    files: ["src/heuristic.c"]
-    description: "Heuristic evaluation functions"
+| Section | What to set |
+|---|---|
+| `project` | `name`, `seed_path`, `original_seed_path`, `language`, optional `paper` |
+| `modules` | Initial decomposition (strategist can refine) |
+| `build` | `command` (e.g., `make -j4` or `true` for Python) and `binary` |
+| `benchmarks` | Glob paths to holdout instances (small/medium/large) |
+| `evaluation` | Metric name, runs per instance, random seeds |
+| `agents` | Tool CLI, model flags per role |
+| `stopping_conditions` | Max iterations, hours, stagnation window |
 
-build:
-  command: "make -j4"        # use "true" for interpreted languages (Python, etc.)
-  binary: "./solver"         # use "python solver.py" for Python
-
-benchmarks:
-  small: ["../my-project/datasets/holdout/small_*"]
-  medium: ["../my-project/datasets/holdout/med_*"]
-  large: ["../my-project/datasets/holdout/large_*"]
-
-training:
-  train: "../my-project/datasets/train/"       # optional: reuse training data from template
-  validation: "../my-project/datasets/validation/"
-
-evaluation:
-  metric: "gap_to_optimal"
-  runs_per_instance: 5
-  random_seeds: [42, 123, 456, 789, 1024]
-
-agents:
-  tool: "claude"                      # coding agent CLI (claude, codex, etc.)
-  strategist:
-    model_flags: "--model opus"       # strongest model — does domain research, composition reasoning, report writing
-  researchers:
-    # count is optional — if omitted, the orchestrator counts the assignment files
-    # the strategist creates in Phase 1 (one per researcher it plans to use).
-    # If no assignments exist yet, defaults to one researcher per module.
-    # count: 3
-    model_flags: "--model sonnet"     # fast, cost-efficient — researchers do focused edit-test loops
-    max_iterations_per_assignment: 20
-  wildcard:                           # optional
-    model_flags: "--model opus"       # strongest model — wildcard has no guidance, needs strong reasoning
-
-stopping_conditions:
-  max_total_iterations: 500
-  max_hours: 24
-  stagnation_window: 50
-  # max_reentries: 2               # max Phase 2 re-entries after failed Phase 3 (default: 2)
-```
-
-### Step 4: Run
+### Step 4: Run and Monitor
 
 ```bash
-cd my-project
+# Create experiment from template
+mengerflock new projects/my-algo my-algo-experiment-1
+cd my-algo-experiment-1
 
-# Launch (auto-initializes state directory and git branches on first run)
+# Launch
 mengerflock run
 ```
 
-This launches a tmux session with one window per agent. Attach to it to interact with the strategist (e.g., approve the Phase 1 plan):
+The orchestrator prints tmux and monitoring instructions at each phase. Key commands:
 
-```bash
-tmux attach -t mengerflock
-```
-
-### Step 5: Monitor
-
-**Live dashboard** (recommended) — open a separate terminal:
-```bash
-cd my-project
-bash path/to/mengerflock/src/mengerflock/dashboard.sh [state_dir] [refresh_seconds]
-```
-
-Arguments:
-- `state_dir` — path to the state directory (default: `state`). This is the directory where `results.tsv` and `strategist_log.tsv` live.
-- `refresh_seconds` — how often the dashboard refreshes in seconds (default: `5`). Use a higher value like `15` or `30` to reduce terminal flicker during long runs.
-
-Example:
-```bash
-# Refresh every 5 seconds, reading from the default state/ directory
-bash path/to/mengerflock/src/mengerflock/dashboard.sh state 5
-
-# Refresh every 15 seconds, reading from a custom state directory
-bash path/to/mengerflock/src/mengerflock/dashboard.sh ./my-run/state 15
-```
-
-Shows real-time progress: per-researcher keep/discard counts, recent experiments, strategist actions.
-
-```
-MengerFlock Dashboard  14:32:15                    Runtime: 42m 3s
-Experiments: 17    keep: 4    discard: 11    crash: 2
-
-r1  (core_logic)    ##........  1 keep / 5 disc
-r2  (heuristics)    ####......  2 keep / 8 disc
-r3  (perturbation)  ##########  1 keep / 0 disc
-w1  (wildcard)      #####.....  1 keep / 1 disc
-
-Recent:
-  14:31:21  r2  discard  dampened warm fallback
-  14:30:41  r1  discard  extend break to outer loops
-  14:28:29  r3  keep     expensive edge first in X2 loop
-
-Strategist: 4 actions
-```
-
-**tmux** — attach directly to watch agents work:
-```bash
-tmux attach -t mengerflock
-```
-
-Navigating between agent windows:
-- `Ctrl+B` then `n` — next window
-- `Ctrl+B` then `p` — previous window
-- `Ctrl+B` then `1` — jump to window 1 (strategist)
-- `Ctrl+B` then `2` — jump to window 2 (researcher r1)
-- `Ctrl+B` then `3` — jump to window 3 (researcher r2 or wildcard, depending on config)
-- `Ctrl+B` then `d` — detach (leave agents running, return to your shell)
-
-**CLI** — quick status check:
-```bash
-mengerflock status
-```
-
-### Step 6: Stop and Report
-
-```bash
-# Graceful stop — finishes current iterations, strategist writes report
-mengerflock stop
-```
+| Action | Command |
+|---|---|
+| Interact with agents | `tmux attach -t mengerflock` |
+| Switch agent windows | `Ctrl+B` then `n`/`p` or `1`/`2`/`3` |
+| Detach (agents keep running) | `Ctrl+B` then `d` |
+| Quick status | `mengerflock status` |
+| Graceful stop | `mengerflock stop` |
+| Reset experiment | `mengerflock clean` |
 
 The strategist writes `report/experimentation-report.md` covering what was tried, what worked, and benchmark comparisons. If the evolved algorithm beats the baseline on holdout, it also writes `report/research-report.md` — a near-publication-quality paper with full reproduction details.
-
-```bash
-# Reset experiment state (removes state/, .worktrees/, report/, experiment branches)
-mengerflock clean
-```
 
 ### Model Selection
 
