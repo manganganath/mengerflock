@@ -76,7 +76,14 @@ All shared state is in the `state/` directory at the project root (the directory
 
    **Full baseline evaluation (all instances, all seeds) happens in Phase 3, not here.** Phase 1 baselines are just for understanding the starting point and planning researcher assignments. Instances that timed out in Phase 1 must be evaluated in Phase 3.
 
-9. **Create initial assignments**: Write `state/assignments/r<id>.yaml` for each researcher with:
+9. **Resource utilization analysis**: After capturing baselines, review the results and log resource utilization for each instance:
+    - What fraction of the timeout was used? (e.g., instance finished in 97s out of 600s → 16% utilization)
+    - Did the algorithm exhaust its iteration/trial budget before timeout?
+    - Flag instances with low utilization (<50%) — these have free compute budget that researchers might exploit.
+    - Flag instances near timeout (>90%) — these are high-value targets where small improvements yield large metric gains.
+    - Log this analysis to `state/strategist_log.tsv` and include it in researcher assignments as context.
+
+10. **Create initial assignments**: Write `state/assignments/r<id>.yaml` for each researcher with:
    ```yaml
    module_name: <name>
    files: [<list of files>]
@@ -85,7 +92,7 @@ All shared state is in the `state/` directory at the project root (the directory
    context: <your analysis of this module and what might work>
    ```
 
-10. **Set up training and validation datasets**: Check `config.yaml` for a `training` section with paths to existing train/validation data:
+11. **Set up training and validation datasets**: Check `config.yaml` for a `training` section with paths to existing train/validation data:
     ```yaml
     training:
       train: "../my-project/datasets/train/"
@@ -101,13 +108,13 @@ All shared state is in the `state/` directory at the project root (the directory
     - Train/validation/holdout must all use the same format so `eval.sh` works without modification.
     - Researchers MUST use training data for their experiments, NOT holdout. Holdout is only for Phase 3 evaluation.
 
-11. **Select regression gate instances**: From holdout, pick 3-5 instances for the regression gate:
+12. **Select regression gate instances**: From holdout, pick 3-5 instances for the regression gate:
     - Cover different difficulty levels (at least one small, one medium, one large if available)
     - Include at least one instance where the baseline has a nonzero gap or is near timeout (sensitive to regressions)
     - Total gate runtime should be under 10 minutes with 1 seed
     - Write `state/regression_gate.tsv` with columns: `instance`, `seed`, `baseline_metric`. Researchers will use this file to check for regressions before logging keeps.
 
-12. **Generate codebase summary for wildcard**: Create a file `state/codebase_summary.md` containing:
+13. **Generate codebase summary for wildcard**: Create a file `state/codebase_summary.md` containing:
    - List of all source files with a one-line description of each
    - Key data structures and where they're defined
    - The main entry point and control flow
@@ -115,9 +122,9 @@ All shared state is in the `state/` directory at the project root (the directory
 
    This helps the wildcard start faster — instead of reading 100+ files, it reads the summary first and knows where to focus.
 
-13. **Signal Phase 1 complete**: Run `touch state/phase1_complete`. This tells the orchestrator to launch researchers. Do NOT create this file before the user has approved.
+14. **Signal Phase 1 complete**: Run `touch state/phase1_complete`. This tells the orchestrator to launch researchers. Do NOT create this file before the user has approved.
 
-14. **After completing initialization, do NOT exit.** Proceed immediately to Phase 2.
+15. **After completing initialization, do NOT exit.** Proceed immediately to Phase 2.
 
 ## Research Loop (Phase 2)
 
