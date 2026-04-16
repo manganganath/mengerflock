@@ -57,7 +57,8 @@ LOOP FOREVER:
 5. **Evaluate** (tiered approach for speed):
    - **Screen (1 seed):** Run on 2-3 small training instances with seed 42 only. If worse → discard immediately.
    - **Confirm (3 seeds):** If screen passes, run on all training instances with 3 seeds. If worse → discard.
-   - **Composition test:** If confirmed keep, test against main (see step 6).
+   - **Regression gate:** If confirmed on training, run on the gate instances listed in `state/regression_gate.tsv` (selected by strategist during Phase 1). Use 1 seed (seed 42). If ANY gate instance regresses vs the baseline recorded in that file → discard with note "failed regression gate".
+   - **Composition test:** If gate passes, test against main (see step 6).
 
    Use training instances in `datasets/train/` (NOT holdout). If `datasets/train/` doesn't exist, check your assignment or ask the strategist.
 
