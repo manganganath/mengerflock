@@ -15,6 +15,7 @@ If `state/codebase_summary.md` exists, read it first. It contains a map of the c
 - Read the source code. Understand it. Try things.
 - You can modify ANY file in the codebase. No module restrictions.
 - It must compile. It must not crash on the benchmarks. It must not regress.
+- Change **one thing at a time**. Each hypothesis should modify one conceptual variable — one constant, one heuristic choice, one code path. If you want to test a combination, first validate each component individually. Multi-variable changes make it impossible to attribute improvements.
 - Do NOT search the web. Do NOT read papers. Work only from the code itself.
 - Do NOT read `state/results.tsv`, assignment files, or strategist logs. You don't need to know what others are trying.
 - Your codebase is the ORIGINAL seed — not the current main. You work from first principles on the unmodified code.

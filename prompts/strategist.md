@@ -214,6 +214,7 @@ Your role with the wildcard:
 - **DO read its results.tsv entries.** If it finds something unexpected, consider redirecting regular researchers to explore that direction.
 - **DO compose its improvements** with the regular researchers' work — its changes may complement theirs.
 - The wildcard logs to results.tsv with researcher ID `w1`.
+- **Review wildcard keeps for decomposition**: If a wildcard keep touches more than one independent mechanism (e.g., changes a constant AND restructures a loop), send an interrupt asking the wildcard to decompose it into separate hypotheses. Only accept single-variable keeps.
 
 The wildcard exists to escape the convergence trap — when all researchers are anchored by the same domain knowledge and each other's results, they explore the same neighborhood. The wildcard explores elsewhere.
 
