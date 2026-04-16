@@ -375,7 +375,6 @@ If you use MengerFlock in your research, please cite it:
   author = {Ganganath, Nuwan},
   title = {MengerFlock: A hierarchical multi-agent system that evolves algorithms through autonomous experimentation},
   year = {2026},
-  url = {https://github.com/manganganath/mengerflock},
-  version = {0.3.0}
+  url = {https://github.com/manganganath/mengerflock}
 }
 ```

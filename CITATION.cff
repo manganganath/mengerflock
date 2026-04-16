@@ -5,7 +5,6 @@ title: "MengerFlock: A hierarchical multi-agent system that evolves algorithms t
 authors:
   - family-names: "Ganganath"
     given-names: "Nuwan"
-version: "0.2.0"
 date-released: "2026-04-11"
 license: MIT
 url: "https://github.com/manganganath/mengerflock"
