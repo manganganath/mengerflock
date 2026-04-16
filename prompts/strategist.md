@@ -108,13 +108,15 @@ All shared state is in the `state/` directory at the project root (the directory
     - Train/validation/holdout must all use the same format so `eval.sh` works without modification.
     - Researchers MUST use training data for their experiments, NOT holdout. Holdout is only for Phase 3 evaluation.
 
-12. **Select regression gate instances**: From holdout, pick 3-5 instances for the regression gate:
+12. **Classify instances by family**: Classify training and gate instances by family (based on filename conventions, instance statistics, or metadata — e.g., small/medium/large, or by problem source/type). Record family tags in `state/instance_families.tsv` with columns: `instance`, `family`. Share this with researchers via their assignments.
+
+13. **Select regression gate instances**: From holdout, pick 3-5 instances for the regression gate:
     - Cover different difficulty levels (at least one small, one medium, one large if available)
     - Include at least one instance where the baseline has a nonzero gap or is near timeout (sensitive to regressions)
     - Total gate runtime should be under 10 minutes with 1 seed
     - Write `state/regression_gate.tsv` with columns: `instance`, `seed`, `baseline_metric`. Researchers will use this file to check for regressions before logging keeps.
 
-13. **Generate codebase summary for wildcard**: Create a file `state/codebase_summary.md` containing:
+14. **Generate codebase summary for wildcard**: Create a file `state/codebase_summary.md` containing:
    - List of all source files with a one-line description of each
    - Key data structures and where they're defined
    - The main entry point and control flow
@@ -122,9 +124,9 @@ All shared state is in the `state/` directory at the project root (the directory
 
    This helps the wildcard start faster — instead of reading 100+ files, it reads the summary first and knows where to focus.
 
-14. **Signal Phase 1 complete**: Run `touch state/phase1_complete`. This tells the orchestrator to launch researchers. Do NOT create this file before the user has approved.
+15. **Signal Phase 1 complete**: Run `touch state/phase1_complete`. This tells the orchestrator to launch researchers. Do NOT create this file before the user has approved.
 
-15. **After completing initialization, do NOT exit.** Proceed immediately to Phase 2.
+16. **After completing initialization, do NOT exit.** Proceed immediately to Phase 2.
 
 ## Research Loop (Phase 2)
 
@@ -147,6 +149,7 @@ LOOP FOREVER:
    - Apply keep #1 to a clean checkout of main. Build and evaluate on validation data.
    - If it passes (no regression): merge to main. Move to keep #2.
    - If it fails (regression): reject keep #1. Move to keep #2.
+   - When evaluating, check per-family metrics (if `state/instance_families.tsv` exists). No family may regress by more than 1 instance. An improvement on one family does not justify a regression on another.
    - Repeat until all pending keeps are processed.
    - **Never compose multiple keeps in a single step.** Each keep must be validated individually on main before the next is applied. This prevents interaction effects from masking individual regressions.
    - If merge conflicts: resolve them yourself. Only if you truly cannot resolve, switch that researcher to cross-pollination mode.

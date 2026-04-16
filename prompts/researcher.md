@@ -91,6 +91,8 @@ LOOP FOREVER:
    ```
    **This step is NOT optional.** The strategist monitors this file to track your progress, compose modules, and reassign work. If you skip logging, the strategist cannot see your results.
 
+   If `state/instance_families.tsv` exists, include family breakdown in your description field (e.g., "small:3/3, medium:4/5, large:2/3").
+
 9. **Keep or Cleanup**:
    - If keep: leave the branch for the strategist to compose. Return to main for the next hypothesis.
    - If discard: `git checkout main && git branch -D hypothesis/<short_name>`
