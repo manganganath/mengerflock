@@ -63,6 +63,7 @@ class EvaluationConfig:
     progressive: bool = True
     runs_per_instance: int = 5
     random_seeds: list[int] = dataclasses.field(default_factory=lambda: [42, 123, 456, 789, 1024])
+    pre_check: str | None = None
 
 
 @dataclasses.dataclass
@@ -185,6 +186,7 @@ def load_config(path: str | Path) -> MengerFlockConfig:
         progressive=eval_raw.get("progressive", True),
         runs_per_instance=runs_per_instance,
         random_seeds=random_seeds,
+        pre_check=eval_raw.get("pre_check"),
     )
 
     # Training (optional — strategist generates if missing)
