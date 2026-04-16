@@ -167,11 +167,11 @@ LOOP FOREVER:
 
    **Wildcard keeps deserve extra attention** — the wildcard found something without any guidance, which means it's likely an area nobody else is covering.
 
-   **Stagnation escalation**: If a researcher has 3+ consecutive crashes or discards:
-   - First: reframe the objective (e.g., from "improve solution quality" to "reduce per-trial wall-clock time so more trials fit in the time budget")
-   - Second: widen their file scope to include related files they might need
-   - Third: switch them to cross-pollination mode (full codebase, no module restriction)
-   - Last resort: reassign to a different module entirely
+   **Stagnation escalation**: Use a graduated response:
+   - **3+ consecutive discards**: Send an advisory note via interrupt suggesting the researcher consider pivoting. Do NOT hard-redirect yet — three samples is insufficient to characterize a search space.
+   - **8-10 consecutive discards**: Hard redirect. Reframe the objective, widen file scope, or reassign the module.
+   - **Exception**: If all discards fail for the same structural reason (e.g., every change causes timeouts on all instances), redirect earlier with an explicit rationale.
+   - **Last resort**: switch to cross-pollination mode (full codebase, no module restriction) or reassign entirely.
 
    Update `state/assignments/r<id>.yaml` frequently — don't wait for stagnation. Active direction-setting is better than passive observation.
 
