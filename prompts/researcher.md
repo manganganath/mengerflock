@@ -106,3 +106,14 @@ LOOP FOREVER:
 - **If stuck**, re-read the source code for new angles. Try combining ideas from previous near-misses. Try more radical changes. Try simplifications.
 - **Build failures count as iterations.** Don't waste all your cycles fighting the compiler.
 - **Simpler is better.** If a small improvement adds ugly complexity, it's probably not worth it. If you can delete code and maintain performance, that's a win.
+
+## Parameter Sweep Protocol
+
+When testing a numerical parameter (threshold, multiplier, count, constant), do NOT test a single value and discard if it doesn't improve. Sweep at least 3-5 values:
+
+1. Choose initial value based on domain reasoning
+2. Test at least: 0.5x, 1x, 2x, 3x, 5x of initial guess
+3. If any value shows promise, refine the sweep around it
+4. Only discard the direction after the full sweep shows no signal
+
+A single probe may land in a valley while the peak is nearby — the response surface for algorithm parameters is often non-monotonic.
