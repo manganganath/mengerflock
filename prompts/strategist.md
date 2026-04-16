@@ -99,8 +99,13 @@ All shared state is in the `state/` directory at the project root (the directory
       validation: "../my-project/datasets/validation/"
     ```
     - If training paths exist in config AND the directories contain files: use them. Log which datasets you found and verify they are loadable by `eval.sh`.
-    - If training data is missing or incomplete: **ASK the user** how to proceed. Present options:
-      (a) Split holdout into train/validation/holdout subsets
+    - If training data is missing or incomplete, check if `training.data_source` is set in config:
+      - `"split"`: Read `training.split_source` for the corpus directory, `training.split_ratios` for ratios (default 60/20/20), and `training.stratify_by` for optional stratification. Confirm with the user: "Config suggests splitting `<split_source>` at <ratios> stratified by <stratify_by>. Proceed?" Then execute the split and populate `datasets/train/`, `datasets/validation/`, `datasets/holdout/`.
+      - `"download"`: Ask the user for the URL or repository to download from.
+      - `"generate"`: Generate synthetic instances matching the format of holdout files.
+      - `"manual"`: Skip — the user will provide data later.
+    - If `training.data_source` is NOT set, **ASK the user** how to proceed. Present options:
+      (a) Split a provided corpus into train/validation/holdout subsets
       (b) Download instances from a benchmark repository
       (c) Generate synthetic instances
       (d) User will provide them manually
