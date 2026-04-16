@@ -142,16 +142,15 @@ LOOP FOREVER:
    - You're about to reassign a researcher
    - **A composition was just rejected — immediately try the next module**
 
-   To compose — **incrementally, one module at a time, best first**:
-   - **Order modules by keep/discard ratio.** A module with 1 keep and 0 discards is a better composition candidate than one with 1 keep and 5 discards. Compose the strongest signal first.
-   - Start from main
-   - Merge module branches one at a time: merge module A → build → evaluate. Then merge module B → build → evaluate. And so on.
-   - If adding a module regresses the composition, skip it and try the next. Don't stop composing after one rejection — try ALL modules with keeps.
-   - Some improvements conflict — e.g., one module speeds up trials while another adds preprocessing that cancels the speedup. Log the conflict.
-   - Keep the best combination. Not all modules need to be in the final composition.
+   To compose — **one keep at a time, best first**:
+   - Rank ALL pending keeps across all researchers by expected impact (largest improvement first, based on training metrics and gate results).
+   - Apply keep #1 to a clean checkout of main. Build and evaluate on validation data.
+   - If it passes (no regression): merge to main. Move to keep #2.
+   - If it fails (regression): reject keep #1. Move to keep #2.
+   - Repeat until all pending keeps are processed.
+   - **Never compose multiple keeps in a single step.** Each keep must be validated individually on main before the next is applied. This prevents interaction effects from masking individual regressions.
    - If merge conflicts: resolve them yourself. Only if you truly cannot resolve, switch that researcher to cross-pollination mode.
-   - If better than main: `git checkout main && git merge composition/<id> --ff-only` and tag it
-   - Log the result and any conflicts to `state/strategist_log.tsv`
+   - Log each composition attempt and result to `state/strategist_log.tsv`.
 
 3. **Redirect based on results**: After each composition or every 5 new results.tsv entries, actively update researcher directions:
 
