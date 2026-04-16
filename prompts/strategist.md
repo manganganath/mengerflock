@@ -86,17 +86,28 @@ All shared state is in the `state/` directory at the project root (the directory
    ```
 
 10. **Set up training and validation datasets**: Check `config.yaml` for a `training` section with paths to existing train/validation data:
-   ```yaml
-   training:
-     train: "../my-project/datasets/train/"
-     validation: "../my-project/datasets/validation/"
-   ```
-   - If training paths exist in config AND the directories contain files: use them. Symlink or copy into the experiment's `datasets/` directory so researchers can find them.
-   - If no training paths in config OR directories are empty: generate synthetic instances. Inspect the holdout files to understand the format, then generate in the same format. Write to the template's datasets folder (derive from `original_seed_path`) so future experiments can reuse them.
+    ```yaml
+    training:
+      train: "../my-project/datasets/train/"
+      validation: "../my-project/datasets/validation/"
+    ```
+    - If training paths exist in config AND the directories contain files: use them. Log which datasets you found and verify they are loadable by `eval.sh`.
+    - If training data is missing or incomplete: **ASK the user** how to proceed. Present options:
+      (a) Split holdout into train/validation/holdout subsets
+      (b) Download instances from a benchmark repository
+      (c) Generate synthetic instances
+      (d) User will provide them manually
+      Do NOT silently generate or rearrange data.
+    - Train/validation/holdout must all use the same format so `eval.sh` works without modification.
+    - Researchers MUST use training data for their experiments, NOT holdout. Holdout is only for Phase 3 evaluation.
 
-   Rule: train and validation files MUST be in the same format as holdout so the binary can consume them without modification. Researchers MUST use training data for their experiments, NOT holdout. Holdout is only for Phase 3 evaluation.
+11. **Select regression gate instances**: From holdout, pick 3-5 instances for the regression gate:
+    - Cover different difficulty levels (at least one small, one medium, one large if available)
+    - Include at least one instance where the baseline has a nonzero gap or is near timeout (sensitive to regressions)
+    - Total gate runtime should be under 10 minutes with 1 seed
+    - Write `state/regression_gate.tsv` with columns: `instance`, `seed`, `baseline_metric`. Researchers will use this file to check for regressions before logging keeps.
 
-11. **Generate codebase summary for wildcard**: Create a file `state/codebase_summary.md` containing:
+12. **Generate codebase summary for wildcard**: Create a file `state/codebase_summary.md` containing:
    - List of all source files with a one-line description of each
    - Key data structures and where they're defined
    - The main entry point and control flow
@@ -104,9 +115,9 @@ All shared state is in the `state/` directory at the project root (the directory
 
    This helps the wildcard start faster — instead of reading 100+ files, it reads the summary first and knows where to focus.
 
-12. **Signal Phase 1 complete**: Run `touch state/phase1_complete`. This tells the orchestrator to launch researchers. Do NOT create this file before the user has approved.
+13. **Signal Phase 1 complete**: Run `touch state/phase1_complete`. This tells the orchestrator to launch researchers. Do NOT create this file before the user has approved.
 
-13. **After completing initialization, do NOT exit.** Proceed immediately to Phase 2.
+14. **After completing initialization, do NOT exit.** Proceed immediately to Phase 2.
 
 ## Research Loop (Phase 2)
 
