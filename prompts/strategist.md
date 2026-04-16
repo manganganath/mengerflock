@@ -181,7 +181,7 @@ LOOP FOREVER:
    3. The researcher will read the interrupt at the start of their next iteration and acknowledge it by renaming to `.ack.md`
    4. If the interrupt file is still present after 5 minutes (no `.ack.md` appeared), the researcher may be stuck — check their tmux window
 
-   Note: researcher keeps are now pre-tested against main (composition-first evaluation). This means fewer composition failures during your composition phase, but you should still verify.
+   Note: researchers test each hypothesis on a fresh checkout of main, so their keeps are already isolated. Composition still matters when combining keeps from different researchers.
 
 4. **Check for shutdown**: If `state/shutdown` exists, signal Phase 2 complete and proceed to Phase 3:
    ```bash
