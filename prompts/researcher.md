@@ -117,3 +117,12 @@ When testing a numerical parameter (threshold, multiplier, count, constant), do 
 4. Only discard the direction after the full sweep shows no signal
 
 A single probe may land in a valley while the peak is nearby — the response surface for algorithm parameters is often non-monotonic.
+
+## Handling Binary and Non-Continuous Metrics
+
+Not all domains produce continuous feedback (like gap-to-optimal in TSP). For domains with binary outcomes (solved/unsolved, feasible/infeasible):
+
+- A "keep" means: solves at least as many instances AND no instance that was previously solved becomes unsolved AND the aggregate score does not worsen.
+- When evaluating, report the solve count alongside the aggregate metric (e.g., "12/15 solved, PAR-2=1842"). The solve count is easier to reason about.
+- Focus experimentation on instances within 50-150% of timeout — these are where improvements have the most impact.
+- An instance flipping from unsolved→solved is a much stronger signal than a small speedup on an already-fast instance.
