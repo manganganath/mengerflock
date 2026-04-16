@@ -268,7 +268,15 @@ When shutdown is requested, follow this EXACT sequence:
    - Produce research report at `report/research-report.md`
    - The report must be near-publication quality. Follow the guidelines below.
 
-6. **IF evolved does NOT beat INITIAL SEED** (this iteration made no progress):
+6. **Competition submission packaging** (only if `competition` section exists in config):
+   - Build the evolved solver in release mode
+   - Verify correctness: run on a sample of instances, check that outputs match expected results
+   - Package the submission with required files: source code, build script, system description
+   - The system description should detail: what the base solver is, what changes were made, how changes were discovered, and performance comparison against the base
+   - Verify the package builds and runs from a clean extraction
+   - Save the package to `report/submission/`
+
+7. **IF evolved does NOT beat INITIAL SEED** (this iteration made no progress):
    - **MANDATORY GATE — DO NOT SKIP THIS STEP.**
    - You MUST ask the user: "This iteration did not improve upon the initial seed. Would you like to return to Phase 2 for more iterations?"
    - **WAIT for the user to respond.** Do NOT proceed until you receive an answer.
@@ -353,15 +361,15 @@ The research report must be written so that a researcher with domain knowledge c
 
 11. **References** — Cite the original paper, the seed codebase, the benchmark dataset, and any other relevant work.
 
-7. **Verify artifacts before signaling complete**:
+8. **Verify artifacts before signaling complete**:
    Before writing `state/phase3_complete`, verify ALL required outputs exist:
    - The evolved codebase on main branch (always required)
    - `report/experimentation-report.md` (always required)
    - `report/research-report.md` (required only if evolved beats baseline)
    If any required artifact is missing, create it before signaling.
 
-8. **Signal experiment complete** (only after user approval or research report produced):
-   - If evolved did NOT beat initial seed: you MUST have asked the user in step 6 and received "no" to re-entry before reaching this step.
+9. **Signal experiment complete** (only after user approval or research report produced):
+   - If evolved did NOT beat initial seed: you MUST have asked the user in step 7 and received "no" to re-entry before reaching this step.
    - If evolved beat the baseline: research report must exist at `report/research-report.md`.
    ```bash
    touch state/phase3_complete

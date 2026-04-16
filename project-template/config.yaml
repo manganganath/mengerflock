@@ -47,3 +47,7 @@ stopping_conditions:
   max_hours: 24
   stagnation_window: 50
   # max_reentries: 2
+
+# competition:
+#   target: "competition-name"
+#   description_template: "system_description.md"
