@@ -25,11 +25,16 @@ benchmarks:
 training:
   train: "../project-template/datasets/train/"
   validation: "../project-template/datasets/validation/"
+  # data_source: "split"                    # "split" | "generate" | "download" | "manual"
+  # split_source: "datasets/all/"
+  # split_ratios: [0.6, 0.2, 0.2]
+  # stratify_by: "instance_type"
 
 evaluation:
   metric: "gap_to_optimal"
   runs_per_instance: 5
   random_seeds: [42, 123, 456, 789, 1024]
+  # pre_check: "python scripts/verify.py"   # optional: runs before eval.sh
 
 agents:
   tool: "claude"
