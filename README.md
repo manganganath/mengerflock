@@ -66,7 +66,7 @@ The orchestrator is a thin Python layer that launches a tmux session with one wi
 
 **Researchers** — N parallel workers (defaults to one per module, configurable). Each runs autonomously in its own git worktree, evolving its assigned module. The loop: read the code, form a hypothesis, edit, commit, build, benchmark, keep or revert. Indefinitely, until stopped.
 
-**Wildcard** — an optional unconstrained researcher. No assignment from the strategist, no web search, no experiment history. Works from the **original seed code** (not the evolving main branch) and reads only the high-level objectives. Writes results to the shared log, but cannot see other researchers' results or strategist directions. Forces genuine novelty by avoiding the convergence trap where all researchers gravitate toward the same ideas. The strategist reads wildcard findings and cross-pollinates useful ideas to regular researchers (one-way channel).
+**Wildcard** — an optional unconstrained researcher. No assignment from the strategist, no web search, no experiment history. Works from the **original seed code** (not the evolving main branch) and reads only the high-level objectives. Writes results to the shared log, but cannot see other researchers' results or strategist directions. Forces genuine novelty by avoiding the convergence trap where all researchers gravitate toward the same ideas. The strategist reads wildcard findings and cross-pollinates useful ideas to regular researchers (one-way channel). Each wildcard hypothesis must change exactly one variable — no multi-variable experiments.
 
 ### Inputs and Outputs
 
@@ -100,12 +100,16 @@ graph LR
     B -->|pass| E[Evaluate]
     E --> Compare{Better?}
     Compare -->|no| Discard[Revert + log]
-    Compare -->|yes| Comp{Test on main}
+    Compare -->|yes| RG{Regression gate}
+    RG -->|any instance regressed| Discard
+    RG -->|pass| Comp{Test on main}
     Comp -->|pass| Keep[Keep + log]
     Comp -->|conflict| Discard
     Keep --> Int
     Discard --> Int
 ```
+
+**Isolated hypothesis testing:** Each hypothesis starts from a clean branch off `origin/main` (`git checkout -b hypothesis/<name> origin/main`). This ensures every experiment is measured against the true baseline, not accumulated worktree drift.
 
 ### Evaluation Strategy
 
@@ -114,7 +118,10 @@ Researchers evaluate mutations with a cost-aware, progressive approach:
 - **1-seed screening** for large instances (>1000 nodes) — screen with 1 seed first, only run full 5-seed eval for promising changes. Saves 80% eval time on bad mutations.
 - **Auto-promotion** — when small instances are saturated (0% gap), skip to medium/large.
 - **Cost-aware keep/discard** — if a change makes trials >10% slower, it's discarded even if gap improves. Speed matters at composition.
-- **Regression guard** — no single instance may regress by more than 2x.
+- **Regression gate** — after a candidate shows improvement, it must pass a regression gate on a representative subset of instances (covering all families and sizes) before proceeding to composition. Any regression on any gate instance is an automatic discard.
+- **Pre-check validation** — an optional pre-check command (e.g., solution format validator) can run before the main evaluation. Configured via `evaluation.pre_check`.
+- **Multi-family tracking** — researchers log per-instance-family breakdowns (e.g., C1, R1, RC2) alongside aggregate metrics so the strategist can detect family-specific regressions.
+- **Parameter sweep protocol** — when tuning numeric parameters, researchers must sweep at least 3 values (e.g., baseline, +50%, +100%) before committing to a value. No single-point conclusions.
 
 ### Dataset Split
 
@@ -125,6 +132,17 @@ MengerFlock uses a train/validation/holdout split to ensure improvements general
 | **Train** | Strategist (generated in same format as holdout) | Researchers | Iterate, keep/discard decisions |
 | **Validation** | Strategist (separate set) | Strategist | Composition evaluation |
 | **Holdout** | User (provided in config) | Report phase only | Final evaluation, never seen during development |
+
+**Data sourcing** is configurable via `training.data_source`:
+
+| Mode | Description |
+|---|---|
+| `split` | Split a single directory of instances into train/validation/holdout by ratio. Supports stratified splits via `stratify_by`. |
+| `generate` | Strategist generates synthetic instances matching holdout format. |
+| `download` | Download instances from a URL. |
+| `manual` | User provides pre-split datasets. |
+
+If omitted, the strategist decides the best approach based on available data.
 
 ### Phase Lifecycle
 
@@ -181,19 +199,18 @@ stateDiagram-v2
 
 **Phase 2 → Phase 3 gate:** Phase 2 ends when stopping conditions are met (max iterations, max hours, stagnation) or the strategist signals `state/phase2_complete`. The orchestrator stops all researcher and wildcard windows but keeps the strategist alive.
 
-**Phase 3 → Done (or Phase 2 re-entry):** The strategist runs holdout evaluation, writes reports, and verifies all artifacts. If the evolved algorithm beats the baseline, it produces a research paper and signals `state/phase3_complete`. If not, it asks the user whether to re-enter Phase 2. The user must approve re-entry — it is not automatic. Maximum re-entries is configurable (`stopping_conditions.max_reentries`, default 2).
+**Phase 3 → Done (or Phase 2 re-entry):** The strategist runs holdout evaluation, writes reports, and verifies all artifacts. If the evolved algorithm beats the baseline, it produces a research paper and signals `state/phase3_complete`. If not, it asks the user whether to re-enter Phase 2. The user must approve re-entry — it is not automatic. Maximum re-entries is configurable (`stopping_conditions.max_reentries`, default 2). If a `competition` section is present in config, Phase 3 also packages submission artifacts (solution files, algorithm description).
 
 ### Composition Strategy
 
-The strategist composes modules **incrementally, best-first**:
+The strategist composes modules using a **single-keep protocol** — each keep is composed immediately when it appears, rather than batching:
 
-1. Order modules by keep/discard ratio (strongest signal first)
-2. Merge module A into main → build → evaluate
-3. If it improves, keep it. If it regresses, skip it.
-4. Merge module B → build → evaluate. And so on.
-5. After a rejection, immediately try the next module (don't wait for a new trigger).
+1. A researcher logs a "keep" → strategist cherry-picks it onto the current main
+2. Build → regression gate (representative subset) → full evaluation
+3. If it passes, it stays on main. If it regresses, it's reverted.
+4. Next keep is composed on top of the updated main.
 
-This catches conflicts early — e.g., one module speeds up trials while another adds preprocessing that cancels the speedup.
+This catches conflicts early — e.g., one module speeds up trials while another adds preprocessing that cancels the speedup. It also means main is always in a known-good state.
 
 ### Composition-First Evaluation
 
@@ -213,10 +230,10 @@ This prevents the strategist from discovering conflicts late during composition,
 The strategist doesn't just observe — it actively steers researchers:
 
 - **Amplify what works** — if a researcher finds a promising direction, update their assignment to explore it deeper
-- **Redirect from dead ends** — if a researcher's keeps get rejected at composition, add that constraint to their assignment
+- **Conservative redirects** — 3 consecutive failures triggers an advisory (suggestion, not mandatory). A hard redirect (must change direction) requires 8-10 consecutive failures. This gives researchers room to explore without premature intervention.
 - **Cross-pollinate insights** — if one researcher discovers that speed matters more than quality, tell the others
 - **Urgent interrupts** — when a researcher must change direction immediately, the strategist writes `state/interrupts/r<id>.md`. The researcher reads and acknowledges it at the start of the next iteration. This is faster than waiting for the researcher to re-read its assignment file.
-- **Escalate on stagnation** — 3+ consecutive failures triggers: reframe objective → widen scope → cross-pollination → reassign
+- **Resource utilization analysis** — after baselines, the strategist checks whether instances are using the full time budget or finishing early. Instances that finish early may benefit from deeper search rather than algorithmic changes.
 
 ### Evolution Strategies
 
@@ -233,6 +250,8 @@ The strategist doesn't just observe — it actively steers researchers:
 - **Train/validation/holdout split.** Researchers never see the holdout benchmark. Results are credible.
 - **Cost-aware evaluation.** Changes that slow down trials are penalized, not just changes that worsen quality.
 - **The wildcard breaks convergence.** One agent with no guidance, no history, no web search — forced to think from first principles.
+- **Regression gates prevent creep.** Every candidate must pass on a representative subset before composition. No regressions allowed, even small ones.
+- **Binary and non-continuous metrics are supported.** The system handles metrics like "pass/fail" or "number of vehicles" where small numeric differences can represent large qualitative changes.
 
 ## Project Structure
 
@@ -289,7 +308,8 @@ The template includes a sample `config.yaml` with all sections. Key fields:
 | `modules` | Initial decomposition (strategist can refine) |
 | `build` | `command` (e.g., `make -j4` or `true` for Python) and `binary` |
 | `benchmarks` | Glob paths to holdout instances (small/medium/large) |
-| `evaluation` | Metric name, runs per instance, random seeds |
+| `training` | Data sourcing: `data_source` (`split`/`generate`/`download`/`manual`), `split_ratios`, `stratify_by` |
+| `evaluation` | Metric name, runs per instance, random seeds, optional `pre_check` command |
 | `agents` | Tool CLI, model flags per role |
 | `stopping_conditions` | Max iterations, hours, stagnation window |
 
@@ -356,6 +376,6 @@ If you use MengerFlock in your research, please cite it:
   title = {MengerFlock: A hierarchical multi-agent system that evolves algorithms through autonomous experimentation},
   year = {2026},
   url = {https://github.com/manganganath/mengerflock},
-  version = {0.2.0}
+  version = {0.3.0}
 }
 ```
