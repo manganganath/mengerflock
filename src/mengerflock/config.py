@@ -47,6 +47,10 @@ class BuildConfig:
 class TrainingConfig:
     train: str | None = None
     validation: str | None = None
+    data_source: str | None = None        # "split" | "generate" | "download" | "manual"
+    split_source: str | None = None       # directory to split (if data_source="split")
+    split_ratios: list[float] | None = None  # [train, validation, holdout]
+    stratify_by: str | None = None        # optional grouping key for stratified splits
 
 
 @dataclasses.dataclass
@@ -191,9 +195,16 @@ def load_config(path: str | Path) -> MengerFlockConfig:
 
     # Training (optional — strategist generates if missing)
     train_raw = raw.get("training", {})
+    split_ratios = train_raw.get("split_ratios")
+    if split_ratios is not None and abs(sum(split_ratios) - 1.0) > 0.01:
+        raise ConfigError("training.split_ratios must sum to 1.0")
     training = TrainingConfig(
         train=train_raw.get("train"),
         validation=train_raw.get("validation"),
+        data_source=train_raw.get("data_source"),
+        split_source=train_raw.get("split_source"),
+        split_ratios=split_ratios,
+        stratify_by=train_raw.get("stratify_by"),
     )
 
     # Agents

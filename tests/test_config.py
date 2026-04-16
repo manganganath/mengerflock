@@ -87,3 +87,34 @@ def test_pre_check_loaded(tmp_path):
     )
     cfg = load_config(_write_config(tmp_path, with_precheck))
     assert cfg.evaluation.pre_check == "python verify.py"
+
+def test_training_data_source_defaults(tmp_path):
+    cfg = load_config(_write_config(tmp_path, MINIMAL_CONFIG))
+    assert cfg.training.data_source is None
+    assert cfg.training.split_source is None
+    assert cfg.training.split_ratios is None
+    assert cfg.training.stratify_by is None
+
+def test_training_data_source_split(tmp_path):
+    with_split = MINIMAL_CONFIG + """
+training:
+  data_source: "split"
+  split_source: "datasets/all/"
+  split_ratios: [0.6, 0.2, 0.2]
+  stratify_by: "instance_type"
+"""
+    cfg = load_config(_write_config(tmp_path, with_split))
+    assert cfg.training.data_source == "split"
+    assert cfg.training.split_source == "datasets/all/"
+    assert cfg.training.split_ratios == [0.6, 0.2, 0.2]
+    assert cfg.training.stratify_by == "instance_type"
+
+def test_training_split_ratios_must_sum_to_one(tmp_path):
+    bad_ratios = MINIMAL_CONFIG + """
+training:
+  data_source: "split"
+  split_source: "datasets/all/"
+  split_ratios: [0.5, 0.2, 0.2]
+"""
+    with pytest.raises(ConfigError):
+        load_config(_write_config(tmp_path, bad_ratios))
