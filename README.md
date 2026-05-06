@@ -12,6 +12,7 @@ MengerFlock honors Karl Menger, an early pioneer of combinatorial optimization a
 - [How It Works](#how-it-works)
 - [Project Structure](#project-structure)
 - [User Guide](#user-guide)
+- [Validated Domains](#validated-domains)
 - [Citation](#citation)
 
 ## Applicable Domains
@@ -270,12 +271,21 @@ mengerflock/
 │   ├── strategist.md           # strategist agent instructions
 │   ├── researcher.md           # researcher agent instructions
 │   └── wildcard.md             # wildcard agent instructions
+├── tests/                        # framework tests
+│   ├── test_cli.py
+│   ├── test_config.py
+│   ├── test_orchestrator.py
+│   ├── test_state.py
+│   └── test_worktree.py
 ├── project-template/             # template skeleton — copy and fill in
 │   ├── original-seed/           # place your unmodified algorithm here
 │   ├── datasets/holdout/        # place your benchmark instances here
 │   ├── config.yaml              # sample config — edit for your project
 │   ├── eval.sh                  # your evaluation script
 │   └── paper.pdf                # optional: reference paper describing the algorithm
+├── CITATION.cff                  # citation metadata
+├── LICENSE
+├── pyproject.toml                # package configuration
 └── projects/                    # your experiment templates and results (gitignored)
 ```
 
@@ -366,6 +376,14 @@ If budget is limited, prioritize the strategist — a weak strategist with stron
 - **Seed code matters.** Start from the best available implementation. The agents evolve from there — they don't invent from scratch.
 - **Add the wildcard** for runs longer than an hour. Its unconstrained exploration is slower but can find ideas the directed researchers miss.
 
+## Validated Domains
+
+| Domain | Seed Algorithm | Result |
+|---|---|---|
+| **TSP** | LKH-2 | 2/3 holdout instances at optimal, 94% gap closed on d2103 |
+| **Bin Packing** | First Fit Decreasing | 1622 to 1610 bins (41% gap closed), 5 instances at optimal |
+| **CVRPTW** | HGS-VRPTW (DIMACS 2021 winner) | Up to 1.92% metric reduction, 5 vehicle eliminations on 104 instances |
+
 ## Citation
 
 If you use MengerFlock in your research, please cite it:
@@ -376,5 +394,18 @@ If you use MengerFlock in your research, please cite it:
   title = {MengerFlock: A hierarchical multi-agent system that evolves algorithms through autonomous experimentation},
   year = {2026},
   url = {https://github.com/manganganath/mengerflock}
+}
+```
+
+The CVRPTW results are published in:
+
+```bibtex
+@inproceedings{ganganath2026cvrptw,
+  author = {Ganganath, Nuwan},
+  title = {Autonomous Multi-Agent Algorithm Evolution for the Capacitated Vehicle Routing Problem with Time Windows},
+  booktitle = {Genetic and Evolutionary Computation Conference (GECCO Companion '26)},
+  year = {2026},
+  publisher = {ACM},
+  doi = {10.1145/3795101.3815556}
 }
 ```
