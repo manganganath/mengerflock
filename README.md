@@ -283,11 +283,18 @@ mengerflock/
 │   ├── config.yaml              # sample config — edit for your project
 │   ├── eval.sh                  # your evaluation script
 │   └── paper.pdf                # optional: reference paper describing the algorithm
+├── ganganath2026cvrptw/           # GECCO 2026 ML4VRP competition entry (CVRPTW)
+│   ├── abstract.pdf               # camera-ready abstract
+│   └── Evolved-HGS-VRPTW/         # the MengerFlock-evolved HGS-VRPTW solver
 ├── CITATION.cff                  # citation metadata
 ├── LICENSE
 ├── pyproject.toml                # package configuration
 └── projects/                    # your experiment templates and results (gitignored)
 ```
+
+The `ganganath2026cvrptw/` directory holds the reproducibility artifacts for the
+GECCO 2026 ML4VRP competition entry: the camera-ready abstract and the evolved
+HGS-VRPTW solver source produced by MengerFlock.
 
 ## User Guide
 
